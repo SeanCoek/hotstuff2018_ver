@@ -199,12 +199,11 @@ requires TypeOK(s) && TypeOK(s')
 
 ghost predicate Spec(trace:seq<SystemState>)
 requires |trace| > 0
-
 {
     && (forall i:nat | 0 <= i < |trace| :: TypeOK(trace[i]))
     && SystemInit(trace[0])
     && (
-        forall i:nat | 0 <= i < |trace|-1 :: SystemNext(trace[i], trace[i+1])
+        forall i:nat | 0 < i < |trace| :: SystemNext(trace[i-1], trace[i])
     )
 }
 
@@ -452,18 +451,50 @@ ensures RType(s)
 // }
 
 
-lemma Init2Inv(s: SystemState)
+lemma lem_Init2Inv(s: SystemState)
 requires SystemInit(s)
 ensures Inv(s)
 
-lemma Inv2Next(s: SystemState, s': SystemState)
+lemma lem_Next2Inv(s: SystemState, s': SystemState)
 requires Inv(s)
 requires SystemNext(s, s')
 ensures Inv(s')
 
-lemma Inv2Correct(s: SystemState)
+lemma lem_Inv2Correct(s: SystemState)
 requires Inv(s)
 ensures Correct(s)
+
+
+lemma lem_Trace2Inv(trace: seq<SystemState>)
+requires |trace| > 0
+requires Spec(trace)
+ensures forall i | 0 <= i < |trace| :: Inv(trace[i])
+{
+    if |trace| == 1 {
+        calc {
+            Spec(trace);
+            ==>
+            SystemInit(trace[0]);
+            ==> { lem_Init2Inv(trace[0]);}
+            Inv(trace[0]);
+        }
+    } else {
+        calc {
+            Spec(trace);
+            ==>
+            SystemNext(trace[|trace|-2], trace[|trace|-1]);
+        }
+        calc {
+            true;
+            ==> {lem_Trace2Inv(trace[..|trace|-1]);}
+            Inv(trace[|trace|-2]);
+        }
+        assert SystemNext(trace[|trace|-2], trace[|trace|-1]);
+        assert Inv(trace[|trace|-2]);
+        lem_Next2Inv(trace[|trace|-2], trace[|trace|-1]);
+        assert Inv(trace[|trace|-1]);
+    }
+}
 
 
 /*
@@ -476,22 +507,47 @@ requires |trace| > 0
 requires Spec(trace)
 ensures forall i | 0 <= i < |trace| :: (Correct(trace[i]) && Inv(trace[i]))
 {
-    // 1. Prove Initial State holds Invarians
-    assert Inv(trace[0]) by {
-        calc {
-            Spec(trace);
-            ==>
-            SystemInit(trace[0]);
+    // 1. Prove all states hold Invarians
+    // assume forall i | 0 <= i < |trace| :: Inv(trace[i]);
+    forall i | 0 <= i < |trace|
+    ensures Inv(trace[i])
+    {
+        if i == 0 {  // Initial State
+            calc {
+                Spec(trace);
+                ==>
+                SystemInit(trace[0]);
+                ==> {lem_Init2Inv(trace[0]);}
+                Inv(trace[0]);
+            }
+
+        } else { // Next State
+            calc {
+                Spec(trace);
+                ==>
+                SystemNext(trace[i-1], trace[i]);
+                ==> { lem_Init2Inv(trace[0]); assert Inv(trace[i-1]); lem_Next2Inv(trace[i-1], trace[i]);}
+                Inv(trace[i]);
+            }
         }
-        Init2Inv(trace[0]);
     }
+    // assert Inv(trace[0]) by {
+    //     calc {
+    //         Spec(trace);
+    //         ==>
+    //         SystemInit(trace[0]);
+    //     }
+    //     Init2Inv(trace[0]);
+    // }
 
     // 2. Prove Next State holds Invarians
-    calc {
-        forall i | 0 <= i < |trace|-1 :: SystemNext(trace[i], trace[i+1]);
-        ==>
-        forall i | 0 <= i < |trace|-1 :: Inv(trace[i+1]);
-    }
+    // calc {
+    //     Spec(trace);
+    //     ==>
+    //     forall i | 0 <= i < |trace|-1 :: SystemNext(trace[i], trace[i+1]);
+    //     ==>
+    //     forall i | 0 <= i < |trace|-1 :: Inv(trace[i+1]);
+    // }
     // assert forall i | 0 <= i < |trace|-1 :: Inv(trace[i+1]) by {
     //     calc {
     //         Spec(trace);
@@ -502,14 +558,19 @@ ensures forall i | 0 <= i < |trace| :: (Correct(trace[i]) && Inv(trace[i]))
     //     }
     // }
 
-    // 3. Since the Initial state and Next state hold Invarians,
-    //    Then all the states hold Invarians.
-    assert forall s | s in trace :: Inv(s);
-
-    // 4.  Invarians imply Correct
-    assert forall s | s in trace :: Correct(s) by {
-        forall s | s in trace {Inv2Correct(s);}
+    // 2.  Invarians imply Correct
+    forall i | 0 <= i < |trace| 
+    ensures Correct(trace[i]) 
+    {
+        calc {
+            Inv(trace[i]);
+            ==> { lem_Inv2Correct(trace[i]); }
+            Correct(trace[i]);
+        }
     }
+    // assert forall s | s in trace :: Correct(s) by {
+    //     forall s | s in trace {Inv2Correct(s);}
+    // }
      
 }
 
