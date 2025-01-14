@@ -96,10 +96,6 @@ requires b in s'.ledger.parent
 /* END of Propose */
 
 
-
-
-
-
 /**
  * Action of Vote
  */
