@@ -30,15 +30,16 @@ module M_System {
     {
         && (
             if IsHonest(ss, r) then
-                ReplicaNext(ss.nodes[r], ss'.nodes[r])
+                ReplicaNext(ss.nodes[r], ss'.nodes[r], outMsg)
             else
-                AdversaryNext(ss.adversary, ss'.adversary)
+                AdversaryNext(ss.adversary, ss'.adversary, outMsg)
         )
     }
 
-    ghost predicate SystemNext(ss : SystemState, ss' : SystemState, outMsg : set<MsgWithRecipient>)
+    ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
     {
         || ss == ss'
-        || (exists r :: SystemNextByOneReplica(ss, ss', r, outMsg))
+        || (exists r, msgRecievedByNodes
+                     :: SystemNextByOneReplica(ss, ss', r, msgRecievedByNodes))
     }
 }

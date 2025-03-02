@@ -1,7 +1,9 @@
 include "Type.dfy"
+include "common/sets.dfy"
 
 module M_AuxilarilyFunc {
     import opened M_SpecTypes
+    import opened M_Set
 
     /**
     * @returns The maximum number of Byzantine validators allowed in a network
@@ -28,25 +30,38 @@ module M_AuxilarilyFunc {
     }  
 
     function leader(round : nat, c : Configuration) : Address
-    {
-        c.nodes[round % |c.nodes|]
-    }
 
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Msg>
-    {
-        set m | m in msgs :: 
-                    && m.mType == msgType
-                    && m.viewNum == view
-    }
+    // {
+    //     set m | m in msgs :: 
+    //                 && m.mType == msgType
+    //                 && m.viewNum == view
+    // }
 
-    function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Msg>
-    {
-        set qc | qc in msg.justify ::
-                        && qc.mType == msgType
-                        && qc.viewNum == view
-    }
+    // method ExtractSignatrues(msgs : set<Msg>) returns (sgns : set<Signature>)
+    // {
+    //     sgns := {};
+    //     var remaining := msgs;
+    //     while remaining != {}
+    //         decreases |remaining|
+    //     {
+    //         var m :| m in remaining;
+    //         sgns := sgns + {m.partialSig};
+    //         remaining := remaining - {m};
+    //     }
+    // }
 
-    method getHighQC(msgs : set<Msg>) returns (qc : Cert)
+    function ExtractSignatrues(msgs : set<Msg>) : set<Signature>
+
+
+    function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Cert>
+    // {
+    //     set qc | qc in msg.justify ::
+    //                     && qc.mType == msgType
+    //                     && qc.viewNum == view
+    // }
+
+    function getHighQC(msgs : set<Msg>) : Cert
 
     function getNewBlock(parent : Block) : Block
     ensures getNewBlock(parent).parent == parent
@@ -71,7 +86,7 @@ module M_AuxilarilyFunc {
     }
 
     function Multicast(m : Msg, recipients : set<Address>) : set<MsgWithRecipient>
-    {
-        set r | r in recipients :: MsgWithRecipient(m, r)
-    }
+    // {
+    //     set r | r in recipients :: MsgWithRecipient(m, r)
+    // }
 }

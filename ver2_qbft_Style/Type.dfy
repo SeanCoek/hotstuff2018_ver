@@ -12,15 +12,15 @@ module M_SpecTypes {
         cType : MsgType,
         viewNum : nat,
         node : Block,
-        signature : set<Signature>
-    )
+        signatures : set<Signature>
+    ) | CertNone
     
     datatype Signature = Signature(
         signer : Address,
         mType : MsgType,
         viewNum : nat,
         node : Block
-    )
+    ) | SigNone
 
     datatype MsgType = MT_NewView | MT_Prepare | MT_PreCommit | MT_Commit | MT_Decide
 
@@ -39,7 +39,7 @@ module M_SpecTypes {
         
     
     datatype Configuration = Configuration(
-        nodes : seq<Address>,
+        nodes : set<Address>,
         genesisBlock : Block
     )
 }

@@ -15,7 +15,7 @@ module M_Adversary {
         && |a.nodes| <= f(|nodes|)
     }
 
-    predicate AdversaryNext(a : Adversary, a' : Adversary)
+    predicate AdversaryNext(a : Adversary, a' : Adversary, outMsg : set<MsgWithRecipient>)
     {
         // TODO: Here to define what a faulty node could do
         true
