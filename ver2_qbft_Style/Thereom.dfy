@@ -18,7 +18,7 @@ module M_Thereom {
         forall i, r1, r2 |
                     && IsHonest(t(i), r1)
                     && IsHonest(t(i), r2)
-                :: consistentBlockchains(t(i).nodes[r1].bc, t(i).nodes[r2].bc)
+                :: consistentBlockchains(t(i).nodeStates[r1].bc, t(i).nodeStates[r2].bc)
     }
 
 
