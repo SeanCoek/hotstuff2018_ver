@@ -39,7 +39,7 @@ module M_SpecTypes {
         
     
     datatype Configuration = Configuration(
-        nodes : set<Address>,
+        nodes : set<Address>,   // all the nodes, containing byzantine nodes
         genesisBlock : Block
     )
 }
