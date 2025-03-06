@@ -29,6 +29,11 @@ module M_System {
         r in ss.nodeStates.Keys - ss.adversary.byz_nodes
     }
 
+    ghost predicate ValidSystemState(ss : SystemState)
+    {
+        forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
+    }
+
     /**
      * Definition of initial state of system
      */

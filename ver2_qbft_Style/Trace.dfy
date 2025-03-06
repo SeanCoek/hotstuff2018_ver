@@ -10,6 +10,7 @@ module M_Trace {
     ghost predicate ValidTrace(t : Trace, c : Configuration)
     {
         && SystemInit(t(0), c)
-        && (forall i : nat :: SystemNext(t(i), t(i+1)))
+        && (forall i : nat :: && ValidSystemState(t(i))
+                              && SystemNext(t(i), t(i+1)))
     }
 }

@@ -178,4 +178,12 @@ module M_Replica {
     {
         UponNextView(r, r', outMsg)
     }
+
+
+    predicate ValidReplicaState(s : ReplicaState)
+    {
+        // TODO: invarians about a node state
+        true
+    }
+
 }
