@@ -46,7 +46,10 @@ module M_Replica {
      *  All different transition states.
      *  Current state (r) could transfer to the next state (r'), together with sending out some messages (outMsg)
      */
-    predicate ReplicaNext(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
+    predicate ReplicaNext(
+        r : ReplicaState, 
+        r' : ReplicaState, 
+        outMsg : set<MsgWithRecipient>)
     {
         || UponNextView(r, r', outMsg)
         || UponPrepare(r, r', outMsg)
