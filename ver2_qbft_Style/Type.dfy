@@ -11,7 +11,7 @@ module M_SpecTypes {
     datatype Cert = Cert(
         cType : MsgType,
         viewNum : nat,
-        node : Block,
+        block : Block,
         signatures : set<Signature>
     ) | CertNone
     
@@ -19,7 +19,7 @@ module M_SpecTypes {
         signer : Address,
         mType : MsgType,
         viewNum : nat,
-        node : Block
+        block : Block
     ) | SigNone
 
     datatype MsgType = MT_NewView | MT_Prepare | MT_PreCommit | MT_Commit | MT_Decide
@@ -27,7 +27,7 @@ module M_SpecTypes {
     datatype Msg = Msg(
         mType : MsgType,
         viewNum : nat,
-        node : Block,
+        block : Block,
         justify : Cert,
         partialSig : Signature
     )

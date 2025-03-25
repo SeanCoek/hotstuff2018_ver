@@ -6,7 +6,7 @@ module M_Replica {
     import opened M_AuxilarilyFunc
 
     /**
-     *  Bookeeping variables for a node
+     *  Bookeeping variables for a replica
      *  id : identifier
      *  bc : local blockchain
      *  c  : configuration about nodes and genesis block
@@ -76,7 +76,7 @@ module M_Replica {
         then
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_NewView, r.viewNum-1);
             var highQC := getHighQC(matchMsgs);
-            var proposal := getNewBlock(highQC.node);
+            var proposal := getNewBlock(highQC.block);
             var proposeMsg := Msg(MT_Prepare, r.viewNum, proposal, highQC, SigNone);
 
             && r' == r.(msgRecieved := r.msgRecieved + {proposeMsg})
@@ -85,11 +85,11 @@ module M_Replica {
         else
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
             forall m | m in matchMsgs ::
-                var sig := Signature(r.id, m.mType, m.viewNum, m.node);
-                var vote := Msg(MT_Prepare, r.viewNum, m.node, CertNone, sig);
+                var sig := Signature(r.id, m.mType, m.viewNum, m.block);
+                var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
                 var voteMsg := MsgWithRecipient(vote, leader);
-                if extension(m.node, m.justify.node)
-                    && safeNode(m.node, m.justify, r.commitQC)
+                if extension(m.block, m.justify.block)
+                    && safeNode(m.block, m.justify, r.commitQC)
                 then
                     voteMsg in outMsg
                 else
@@ -107,7 +107,7 @@ module M_Replica {
                 var m :| m in matchMsgs;
                 var sgns := ExtractSignatrues(matchMsgs);
                 // var signatures := m.partialSig;
-                var prepareQC := Cert(MT_Prepare, m.viewNum, m.node, sgns);
+                var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                 var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
                 && r' == r.(msgRecieved := r.msgRecieved + {precommitMsg})
                 && outMsg == Multicast(precommitMsg, r.c.nodes)
@@ -117,8 +117,8 @@ module M_Replica {
         else
             var matchQCs := getMatchQC(r.msgRecieved, MT_Prepare, r.viewNum);
             forall m | m in matchQCs ::
-                var sig := Signature(r.id, m.cType, m.viewNum, m.node);
-                var vote := Msg(MT_PreCommit, r.viewNum, m.node, CertNone, sig);
+                var sig := Signature(r.id, m.cType, m.viewNum, m.block);
+                var vote := Msg(MT_PreCommit, r.viewNum, m.block, CertNone, sig);
                 var voteMsg := MsgWithRecipient(vote, leader);
                 && r' == r.(prepareQC := m)
                 && voteMsg in outMsg
@@ -135,7 +135,7 @@ module M_Replica {
             then
                 var m :| m in matchMsgs;
                 var sgns := ExtractSignatrues(matchMsgs);
-                var precommitQC := Cert(MT_PreCommit, m.viewNum, m.node, sgns);
+                var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
                 var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
                 && r' == r.(msgRecieved := r.msgRecieved + {commitMsg})
                 && outMsg == Multicast(commitMsg, r.c.nodes)
@@ -145,8 +145,8 @@ module M_Replica {
         else
             var matchQCs := getMatchQC(r.msgRecieved, MT_PreCommit, r.viewNum);
             forall m | m in matchQCs ::
-                var sig := Signature(r.id, m.cType, m.viewNum, m.node);
-                var vote := Msg(MT_Commit, r.viewNum, m.node, CertNone, sig);
+                var sig := Signature(r.id, m.cType, m.viewNum, m.block);
+                var vote := Msg(MT_Commit, r.viewNum, m.block, CertNone, sig);
                 var voteMsg := MsgWithRecipient(vote, leader);
                 && r' == r.(commitQC := m)
                 && voteMsg in outMsg
@@ -162,7 +162,7 @@ module M_Replica {
             then
                 var m :| m in matchMsgs;
                 var sgns := ExtractSignatrues(matchMsgs);
-                var commitQC := Cert(MT_PreCommit, m.viewNum, m.node, sgns);
+                var commitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
                 var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
                 && r' == r.(msgRecieved := r.msgRecieved + {decideMsg})
                 && outMsg == Multicast(decideMsg, r.c.nodes)
@@ -173,7 +173,7 @@ module M_Replica {
             var matchQCs := getMatchQC(r.msgRecieved, MT_Commit, r.viewNum);
             forall m | m in matchQCs ::
                 && r' == r.(
-                    bc := r.bc + [m.node]
+                    bc := r.bc + [m.block]
                 )
     }
 
@@ -185,7 +185,7 @@ module M_Replica {
 
     predicate ValidReplicaState(s : ReplicaState)
     {
-        // TODO: invarians about a node state
+        // TODO: invarians about a replica state
         true
     }
 
