@@ -42,11 +42,42 @@ module M_Replica {
         && r.highestExecutedBlock == EmptyBlock
     }
 
+
     /**
-     *  All different transition states.
-     *  Current state (r) could transfer to the next state (r'), together with sending out some messages (outMsg)
+     * Consider this as a big step of state transition.
+     * A current state (@param:r) recieves many messages (@param:inMsg), 
+     * and then transfer to another state (@param:r') by many single actions defined in @Func:ReplicaNextSubStep,
+     * sending out messages (@param:outMsg) during those transition path.
      */
-    predicate ReplicaNext(
+    ghost predicate ReplicaNext(
+        r : ReplicaState,
+        inMsg : set<Msg>,
+        r' : ReplicaState,
+        outMsg : set<MsgWithRecipient>)
+    {
+        var allMsgReceived := r.msgRecieved + inMsg;
+        var replicaWithNewMsgReceived := r.(
+            msgRecieved := allMsgReceived
+        );
+
+        exists s : seq<ReplicaState>, o : seq<set<MsgWithRecipient>> ::
+                && |s| > 2
+                && |o| == |s| - 1
+                && s[0] == replicaWithNewMsgReceived
+                && s[|s|-1] == r'
+                && (forall i | 0 <= i < |s| - 1 ::
+                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
+                )
+                && outMsg == setUnionOnSeq(o)
+
+    }
+
+    /**
+     *  All different state transition actions.
+     *  Current state (@param:r) could transfer to the next state (@param:r'),
+     *  together with sending out messages (@param:outMsg)
+     */
+    predicate ReplicaNextSubStep(
         r : ReplicaState, 
         r' : ReplicaState, 
         outMsg : set<MsgWithRecipient>)

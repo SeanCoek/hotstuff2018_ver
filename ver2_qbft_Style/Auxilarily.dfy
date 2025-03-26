@@ -6,6 +6,17 @@ module M_AuxilarilyFunc {
     import opened M_Set
 
     /**
+     * @returns Set union of a sequence of sets
+     */
+    function setUnionOnSeq<T>(sets : seq<set<T>>) : set<T>
+    {
+        if sets == [] then
+            {}
+        else
+            sets[0] + setUnionOnSeq(sets[1..])
+    }
+
+    /**
     * @returns The maximum number of Byzantine validators allowed in a network
     *          of `setSize` validators
     */
@@ -79,9 +90,9 @@ module M_AuxilarilyFunc {
         parent in getAncestors(child)
     }
 
-    predicate safeNode(node : Block, qc : Cert, lockedQC : Cert)
+    predicate safeNode(block : Block, qc : Cert, lockedQC : Cert)
     {
-        || extension(node, lockedQC.node)
+        || extension(block, lockedQC.block)
         || qc.viewNum > lockedQC.viewNum
     }
 
@@ -89,4 +100,11 @@ module M_AuxilarilyFunc {
     // {
     //     set r | r in recipients :: MsgWithRecipient(m, r)
     // }
+
+    predicate NoConflict(b1 : Block, b2 : Block)
+    {
+        || b1 == b2
+        || extension(b1, b2)
+        || extension(b2, b1)
+    }
 }

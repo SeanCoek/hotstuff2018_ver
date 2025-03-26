@@ -52,7 +52,7 @@ module M_System {
      * @param inMsg -> messages recieved by this node
      * @param outMsg -> messages sent when state transition happens
      */
-    predicate SystemNextByOneReplica(
+    ghost predicate SystemNextByOneReplica(
         ss : SystemState, 
         ss' : SystemState, 
         replica : Address, 
@@ -67,7 +67,7 @@ module M_System {
             if IsHonest(ss, replica) then
                 && ss'.nodeStates == ss.nodeStates[replica := ss'.nodeStates[replica]]
                 && ss'.adversary == ss.adversary
-                && ReplicaNext(ss.nodeStates[replica], ss'.nodeStates[replica], outMsg)
+                && ReplicaNext(ss.nodeStates[replica], msgRecievedSingleSet, ss'.nodeStates[replica], outMsg)
             else
                 && ss'.nodeStates == ss.nodeStates
                 && AdversaryNext(ss.adversary, msgRecievedSingleSet, ss'.adversary, outMsg)

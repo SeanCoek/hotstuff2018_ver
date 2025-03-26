@@ -1,10 +1,12 @@
 include "Type.dfy"
 include "System.dfy"
+include "Auxilarily.dfy"
 
 
 module M_Invariants {
     import opened M_SpecTypes
     import opened M_System
+    import opened M_AuxilarilyFunc
 
 
 
