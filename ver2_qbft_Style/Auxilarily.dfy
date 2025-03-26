@@ -43,11 +43,11 @@ module M_AuxilarilyFunc {
     function leader(round : nat, c : Configuration) : Address
 
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Msg>
-    // {
-    //     set m | m in msgs :: 
-    //                 && m.mType == msgType
-    //                 && m.viewNum == view
-    // }
+    {
+        set m | && m in msgs
+                && m.mType == msgType
+                && m.viewNum == view
+    }
 
     // method ExtractSignatrues(msgs : set<Msg>) returns (sgns : set<Signature>)
     // {
@@ -65,17 +65,24 @@ module M_AuxilarilyFunc {
     function ExtractSignatrues(msgs : set<Msg>) : set<Signature>
 
 
-    function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Cert>
+    ghost function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Cert>
     // {
-    //     set qc | qc in msg.justify ::
-    //                     && qc.mType == msgType
-    //                     && qc.viewNum == view
+        // set qc | qc in msg.justify ::
+        //                 && qc.mType == msgType
+        //                 && qc.viewNum == view
+
+        //TODO: Find out if this is the right way to compare a datatype
+        // set m | && m in msgs 
+        //         && m.justify.cType < msgType    
+        //         && m.justify.viewNum == view
+        //       ::
+        //         m.justify
     // }
 
     function getHighQC(msgs : set<Msg>) : Cert
 
     function getNewBlock(parent : Block) : Block
-    ensures getNewBlock(parent).parent == parent
+    ensures {:axiom}getNewBlock(parent).parent == parent
 
     function getAncestors(b : Block) : set<Block>
     {
@@ -97,14 +104,23 @@ module M_AuxilarilyFunc {
     }
 
     function Multicast(m : Msg, recipients : set<Address>) : set<MsgWithRecipient>
-    // {
-    //     set r | r in recipients :: MsgWithRecipient(m, r)
-    // }
+    {
+        set r | r in recipients :: MsgWithRecipient(m, r)
+    }
 
     predicate NoConflict(b1 : Block, b2 : Block)
     {
         || b1 == b2
         || extension(b1, b2)
         || extension(b2, b1)
+    }
+
+    predicate ValidQC(qc : Cert)
+    {
+        var sgns := qc.signatures;
+        forall s | s in sgns
+                :: && s.mType == qc.cType
+                   && s.viewNum == qc.viewNum
+                   && s.block == qc.block
     }
 }
