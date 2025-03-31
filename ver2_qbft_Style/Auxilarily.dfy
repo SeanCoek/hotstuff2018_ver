@@ -81,11 +81,16 @@ module M_AuxilarilyFunc {
     }
 
     function getHighQC(msgs : set<Msg>) : Cert
+    ensures getHighQC(msgs).Cert?
+    ensures getHighQC(msgs).block.Block?
 
     function getNewBlock(parent : Block) : Block
+    requires parent.Block?
+    ensures getNewBlock(parent).Block?
     ensures {:axiom}getNewBlock(parent).parent == parent
 
     function getAncestors(b : Block) : set<Block>
+    requires b.Block?
     {
         match (b.parent != EmptyBlock){
             case true => {b} + getAncestors(b.parent)
@@ -94,11 +99,13 @@ module M_AuxilarilyFunc {
     }
 
     predicate extension(child : Block, parent : Block)
+    requires child.Block?
     {
         parent in getAncestors(child)
     }
 
     predicate safeNode(block : Block, qc : Cert, lockedQC : Cert)
+    requires block.Block? && lockedQC.Cert? && qc.Cert?
     {
         || extension(block, lockedQC.block)
         || qc.viewNum > lockedQC.viewNum
@@ -110,6 +117,7 @@ module M_AuxilarilyFunc {
     }
 
     predicate NoConflict(b1 : Block, b2 : Block)
+    requires b1.Block? && b2.Block?
     {
         || b1 == b2
         || extension(b1, b2)

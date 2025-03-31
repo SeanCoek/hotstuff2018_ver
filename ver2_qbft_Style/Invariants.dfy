@@ -22,8 +22,13 @@ module M_Invariants {
      */
     ghost predicate inv_Blockchain_Inner_Consistency(b : Blockchain)
     {
-        forall i1, i2 | i1 == i2-1 // TODO: Could be to strong
+        forall i1, i2 | 
+                        && 0 < i2 <= |b|-1
+                        && i1 == i2-1 // TODO: Could be to strong
                       ::
+                        && b[i1].Block?
+                        && b[i2].Block?
+                        && b[i2].parent.Block?
                         && b[i1] == b[i2].parent
     }
 
@@ -40,6 +45,8 @@ module M_Invariants {
                             && m2 in msgRecieved
                             && m1.mType == MT_Prepare
                             && m2.mType == MT_Prepare
+                            && m1.partialSig.Signature?
+                            && m2.partialSig.Signature?
                             && m1.partialSig.signer == m2.partialSig.signer
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
@@ -60,6 +67,8 @@ module M_Invariants {
                             && m2 in msgRecieved
                             && m1.mType == MT_PreCommit
                             && m2.mType == MT_PreCommit
+                            && m1.partialSig.Signature?
+                            && m2.partialSig.Signature?
                             && m1.partialSig.signer == m2.partialSig.signer
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
@@ -80,6 +89,8 @@ module M_Invariants {
                             && m2 in msgRecieved
                             && m1.mType == MT_Commit
                             && m2.mType == MT_Commit
+                            && m1.partialSig.Signature?
+                            && m2.partialSig.Signature?
                             && m1.partialSig.signer == m2.partialSig.signer
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
@@ -93,6 +104,10 @@ module M_Invariants {
                         && IsHonest(ss, r1)
                         && IsHonest(ss, r2)
                       ::
+                        && ss.nodeStates[r1].commitQC.Cert?
+                        && ss.nodeStates[r2].commitQC.Cert?
+                        && ss.nodeStates[r1].commitQC.block.Block?
+                        && ss.nodeStates[r2].commitQC.block.Block?
                         && NoConflict(ss.nodeStates[r1].commitQC.block, ss.nodeStates[r2].commitQC.block)   //TODO: define block confliction
             
     }

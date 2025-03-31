@@ -105,6 +105,7 @@ module M_Replica {
         var leader := leader(r.viewNum, r.c);
         if leader == r.id // Leader
         then
+            assume r.viewNum > 0;
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_NewView, r.viewNum-1);
             var highQC := getHighQC(matchMsgs);
             var proposal := getNewBlock(highQC.block);
@@ -119,8 +120,12 @@ module M_Replica {
                 var sig := Signature(r.id, m.mType, m.viewNum, m.block);
                 var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
                 var voteMsg := MsgWithRecipient(vote, leader);
-                if extension(m.block, m.justify.block)
-                    && safeNode(m.block, m.justify, r.commitQC)
+                
+                if && m.block.Block?
+                   && m.justify.Cert? 
+                   && extension(m.block, m.justify.block) 
+                   && r.commitQC.Cert?
+                   && safeNode(m.block, m.justify, r.commitQC)
                 then
                     voteMsg in outMsg
                 else
@@ -135,13 +140,14 @@ module M_Replica {
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
             if |matchMsgs| >= quorum(|r.c.nodes|)
             then
-                var m :| m in matchMsgs;
-                var sgns := ExtractSignatrues(matchMsgs);
-                // var signatures := m.partialSig;
-                var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
-                var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {precommitMsg})
-                && outMsg == Multicast(precommitMsg, r.c.nodes)
+                // var m :| m in matchMsgs;
+                forall m | m in matchMsgs
+                        ::
+                        var sgns := ExtractSignatrues(matchMsgs);
+                        var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                        var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                        && r' == r.(msgRecieved := r.msgRecieved + {precommitMsg})
+                        && outMsg == Multicast(precommitMsg, r.c.nodes)
             else
                 && r' == r
                 && |outMsg| == 0
@@ -164,12 +170,14 @@ module M_Replica {
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_PreCommit, r.viewNum);
             if |matchMsgs| >= quorum(|r.c.nodes|)
             then
-                var m :| m in matchMsgs;
-                var sgns := ExtractSignatrues(matchMsgs);
-                var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {commitMsg})
-                && outMsg == Multicast(commitMsg, r.c.nodes)
+                // var m :| m in matchMsgs;
+                forall m | m in matchMsgs
+                        ::
+                        var sgns := ExtractSignatrues(matchMsgs);
+                        var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
+                        var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
+                        && r' == r.(msgRecieved := r.msgRecieved + {commitMsg})
+                        && outMsg == Multicast(commitMsg, r.c.nodes)
             else
                 && r' == r
                 && |outMsg| == 0
@@ -191,12 +199,13 @@ module M_Replica {
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Commit, r.viewNum);
             if |matchMsgs| >= quorum(|r.c.nodes|)
             then
-                var m :| m in matchMsgs;
-                var sgns := ExtractSignatrues(matchMsgs);
-                var commitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {decideMsg})
-                && outMsg == Multicast(decideMsg, r.c.nodes)
+                forall m | m in matchMsgs
+                        ::
+                        var sgns := ExtractSignatrues(matchMsgs);
+                        var commitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
+                        var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
+                        && r' == r.(msgRecieved := r.msgRecieved + {decideMsg})
+                        && outMsg == Multicast(decideMsg, r.c.nodes)
             else
                 && r' == r
                 && |outMsg| == 0
