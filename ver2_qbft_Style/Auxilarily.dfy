@@ -66,18 +66,19 @@ module M_AuxilarilyFunc {
 
 
     ghost function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Cert>
-    // {
+    {
         // set qc | qc in msg.justify ::
         //                 && qc.mType == msgType
         //                 && qc.viewNum == view
 
-        //TODO: Find out if this is the right way to compare a datatype
-        // set m | && m in msgs 
-        //         && m.justify.cType < msgType    
-        //         && m.justify.viewNum == view
-        //       ::
-        //         m.justify
-    // }
+        // TODO: Find out if this is the right way to compare a datatype
+        set m | && m in msgs 
+                && m.justify.Cert?
+                && m.justify.cType < msgType    
+                && m.justify.viewNum == view
+              ::
+                m.justify
+    }
 
     function getHighQC(msgs : set<Msg>) : Cert
 
@@ -116,10 +117,12 @@ module M_AuxilarilyFunc {
     }
 
     predicate ValidQC(qc : Cert)
+    requires qc.Cert?
     {
         var sgns := qc.signatures;
         forall s | s in sgns
-                :: && s.mType == qc.cType
+                :: && s.Signature?
+                   && s.mType == qc.cType
                    && s.viewNum == qc.viewNum
                    && s.block == qc.block
     }

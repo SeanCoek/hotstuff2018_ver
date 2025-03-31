@@ -77,7 +77,7 @@ module M_Replica {
      *  Current state (@param:r) could transfer to the next state (@param:r'),
      *  together with sending out messages (@param:outMsg)
      */
-    predicate ReplicaNextSubStep(
+    ghost predicate ReplicaNextSubStep(
         r : ReplicaState, 
         r' : ReplicaState, 
         outMsg : set<MsgWithRecipient>)
@@ -127,7 +127,7 @@ module M_Replica {
                     !(voteMsg in outMsg)
     }  
 
-    predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
+    ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
     {
         var leader := leader(r.viewNum, r.c);
         if leader == r.id // Leader
@@ -156,7 +156,7 @@ module M_Replica {
                 
     }
 
-    predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
+    ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
     {
         var leader := leader(r.viewNum, r.c);
         if leader == r.id // Leader
@@ -183,7 +183,7 @@ module M_Replica {
                 && voteMsg in outMsg
     }
 
-    predicate UponDecide(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
+    ghost predicate UponDecide(r : ReplicaState, r' : ReplicaState, outMsg : set<MsgWithRecipient>)
     {
         var leader := leader(r.viewNum, r.c);
         if leader == r.id // Leader
