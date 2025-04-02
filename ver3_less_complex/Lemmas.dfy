@@ -5,6 +5,10 @@ module M_Lemma {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
 
+    lemma{:axiom} Axiom_Byz_Constraints()
+    ensures |Adversary_Nodes| < f(|Honest_Nodes| + |Adversary_Nodes|)
+    ensures Adversary_Nodes * Honest_Nodes == {}
+
     /**
      * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
      */

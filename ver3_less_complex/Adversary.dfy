@@ -35,7 +35,8 @@ module M_Adversary {
         a : Adversary, 
         inMsg : set<Msg>,
         a' : Adversary, 
-        outMsg : set<MsgWithRecipient>
+        // outMsg : set<MsgWithRecipient>
+        outMsg : set<Msg>
         )
     {
         var msgRecieved := a.msgRecieved + inMsg;
@@ -43,7 +44,7 @@ module M_Adversary {
             msgRecieved := msgRecieved
         )
         && (forall m | m in outMsg ::
-                    || m.msg in msgRecieved // keep the recieved message unchanged and forward to other nodes.
+                    || m in msgRecieved // keep the recieved message unchanged and forward to other nodes.
                     // TODO: further faulty behavirous can be updated here, using disjunction `||`
             )
     }

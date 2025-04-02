@@ -13,30 +13,15 @@ module M_Invariants {
     /**
      * Invariant: Constant fields kept by the system, e.g. Node counts(Honest & Byzantine), Node role(Honest always be honest?)
      */
-    ghost predicate inv_Constant_Fields(ss : SystemState)
+    ghost predicate Inv_Constant_Fields(ss : SystemState)
     // {
     // }
-
-    /**
-     * Invariant: All Blockchain should be consistent by its own. Consistency -> the former block should be parent of the later block.
-     */
-    ghost predicate inv_Blockchain_Inner_Consistency(b : Blockchain)
-    {
-        forall i1, i2 | 
-                        && 0 < i2 <= |b|-1
-                        && i1 == i2-1 // TODO: Could be to strong
-                      ::
-                        && b[i1].Block?
-                        && b[i2].Block?
-                        && b[i2].parent.Block?
-                        && b[i1] == b[i2].parent
-    }
 
 
     /**
      * Invariant: Each honest node are forced to vote PROPOSAL only one time at the same view. See Page(6): PROOF of Lemma 1
      */
-    ghost predicate inv_Honest_Node_Only_Vote_One_Proposal_At_Same_View(ss : SystemState)
+    ghost predicate Inv_Honest_Node_Only_Vote_One_Proposal_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
             var msgRecieved := ss.nodeStates[r].msgRecieved;
@@ -58,7 +43,7 @@ module M_Invariants {
     /**
      * Invariant: Each honest node are forced to vote only one PREPARE message from leader at the same view. See Page(6): PROOF of Lemma 1
      */
-    ghost predicate inv_Honest_Node_Only_Vote_One_Prepare_At_Same_View(ss : SystemState)
+    ghost predicate Inv_Honest_Node_Only_Vote_One_Prepare_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
             var msgRecieved := ss.nodeStates[r].msgRecieved;
@@ -80,7 +65,7 @@ module M_Invariants {
     /**
      * Invariant: Each honest node are forced to vote only one PRECOMMIT message from leader at the same view. See Page(6): PROOF of Lemma 1
      */
-    ghost predicate inv_Honest_Node_Only_Vote_One_PreCommit_At_Same_View(ss : SystemState)
+    ghost predicate Inv_Honest_Node_Only_Vote_One_PreCommit_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
             var msgRecieved := ss.nodeStates[r].msgRecieved;
@@ -98,7 +83,7 @@ module M_Invariants {
                             m1 == m2
     }
 
-    ghost predicate inv_Honest_Node_Commit_Not_Conflict_Block(ss : SystemState)
+    ghost predicate Inv_Honest_Node_Commit_Not_Conflict_Block(ss : SystemState)
     {
         forall r1, r2 | 
                         && IsHonest(ss, r1)
@@ -111,5 +96,7 @@ module M_Invariants {
                         && NoConflict(ss.nodeStates[r1].commitQC.block, ss.nodeStates[r2].commitQC.block)   //TODO: define block confliction
             
     }
+
+    // ghost predicate Inv_
 
 }

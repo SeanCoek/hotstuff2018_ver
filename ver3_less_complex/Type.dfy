@@ -1,3 +1,5 @@
+include "Auxilarily.dfy"
+
 module M_SpecTypes {
 
     type {:extern "Address"} Address(==,!new)
@@ -40,6 +42,13 @@ module M_SpecTypes {
     
     datatype Configuration = Configuration(
         nodes : set<Address>,   // all the nodes, containing byzantine nodes
-        genesisBlock : Block
+        genesisBlock : Block,
+        honestNodes : set<Address> := Honest_Nodes,
+        adversaryNodes : set<Address> := Adversary_Nodes
     )
+
+    const Honest_Nodes : set<Address>
+
+    const Adversary_Nodes : set<Address>
+
 }

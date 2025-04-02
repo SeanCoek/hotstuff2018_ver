@@ -58,11 +58,12 @@ module M_System {
         ss : SystemState, 
         ss' : SystemState, 
         replica : Address, 
-        inMsg: multiset<MsgWithRecipient>,
-        outMsg : set<MsgWithRecipient>)
+        inMsg: multiset<Msg>,
+        outMsg : set<Msg>)
     {
-        && (forall mr:MsgWithRecipient | mr in inMsg :: mr.recipient == replica)
-        && var msgRecievedSingleSet := set mr:MsgWithRecipient | mr in inMsg :: mr.msg;
+        // && (forall mr:MsgWithRecipient | mr in inMsg :: mr.recipient == replica)
+        // && var msgRecievedSingleSet := set mr:MsgWithRecipient | mr in inMsg :: mr.msg;
+        && var msgRecievedSingleSet := set mr:Msg | mr in inMsg;
         && replica in ss.nodeStates
         && ss.nodeStates.Keys == ss'.nodeStates.Keys
         && (
@@ -83,6 +84,8 @@ module M_System {
      * @param ss' -> next system state
      */
     ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
+    requires ValidSystemState(ss)
+    ensures ValidSystemState(ss')
     {
         || ss == ss'
         || (exists replica,

@@ -23,8 +23,8 @@ module M_Replica {
         viewNum : nat,
         prepareQC : Cert,
         commitQC : Cert,
-        msgRecieved : set<Msg>,
-        highestExecutedBlock : Block
+        msgRecieved : set<Msg>
+        // highestExecutedBlock : Block
     )
 
     /**
@@ -39,7 +39,7 @@ module M_Replica {
         && r.prepareQC == CertNone
         && r.commitQC == CertNone
         && r.msgRecieved == {}
-        && r.highestExecutedBlock == EmptyBlock
+        // && r.highestExecutedBlock == EmptyBlock
     }
 
 
@@ -234,10 +234,27 @@ module M_Replica {
     }
 
 
-    predicate ValidReplicaState(s : ReplicaState)
+    ghost predicate ValidReplicaState(s : ReplicaState)
     {
         // TODO: invarians about a replica state
-        true
+        && Inv_Blockchain_Inner_Consistency(s.bc)
+        // && getAncestors(s.commitQC) in s.bc
+        // true
+    }
+
+    /**
+     * Invariant: All Blockchain should be consistent by its own. Consistency -> the former block should be parent of the later block.
+     */
+    ghost predicate Inv_Blockchain_Inner_Consistency(b : Blockchain)
+    {
+        forall i1, i2 | 
+                        && 0 < i2 <= |b|-1
+                        && i1 == i2-1 // TODO: Could be to strong
+                      ::
+                        && b[i1].Block?
+                        && b[i2].Block?
+                        && b[i2].parent.Block?
+                        && b[i1] == b[i2].parent
     }
 
 }
