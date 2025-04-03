@@ -28,7 +28,8 @@ module M_System {
      */
     predicate IsHonest(ss : SystemState, r : Address)
     {
-        r in ss.nodeStates.Keys - ss.adversary.byz_nodes
+        // r in ss.nodeStates.Keys - ss.adversary.byz_nodes
+        r in ss.configuration.honestNodes
     }
 
     ghost predicate ValidSystemState(ss : SystemState)

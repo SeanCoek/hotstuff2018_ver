@@ -39,16 +39,14 @@ module M_SpecTypes {
         recipient : Address
     )
         
-    
-    datatype Configuration = Configuration(
-        nodes : set<Address>,   // all the nodes, containing byzantine nodes
-        genesisBlock : Block,
-        honestNodes : set<Address> := Honest_Nodes,
-        adversaryNodes : set<Address> := Adversary_Nodes
-    )
-
     const Honest_Nodes : set<Address>
 
     const Adversary_Nodes : set<Address>
-
+    
+    datatype Configuration = Configuration(
+        honestNodes : set<Address> := Honest_Nodes,
+        adversaryNodes : set<Address> := Adversary_Nodes,
+        nodes : set<Address> := honestNodes + adversaryNodes,   // all the nodes, containing byzantine nodes
+        genesisBlock : Block
+    )
 }

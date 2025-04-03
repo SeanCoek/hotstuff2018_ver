@@ -14,6 +14,10 @@ module M_Invariants {
      * Invariant: Constant fields kept by the system, e.g. Node counts(Honest & Byzantine), Node role(Honest always be honest?)
      */
     ghost predicate Inv_Constant_Fields(ss : SystemState)
+    {
+      && ss.configuration.honestNodes == Honest_Nodes
+      && ss.configuration.adversaryNodes == Adversary_Nodes
+    }
     // {
     // }
 

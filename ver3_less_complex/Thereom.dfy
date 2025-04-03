@@ -2,12 +2,14 @@ include "Type.dfy"
 include "System.dfy"
 include "Trace.dfy"
 include "Invariants.dfy"
+include "Replica.dfy"
 
 module M_Thereom {
     import opened M_SpecTypes
     import opened M_System
     import opened M_Trace
     import opened M_Invariants
+    import opened M_Replica
 
     predicate consistentBlockchains(bc1 : Blockchain, bc2 : Blockchain)
     {
@@ -49,7 +51,19 @@ module M_Thereom {
     lemma Lemma_Initial_State_Holds_Inv(ss : SystemState)
     requires SystemInit(ss, ss.configuration)
     ensures Inv_All(ss)
-    {}
+    {
+        // Replica initialization would not change configuration
+        calc {
+            forall r, c1, c2 | r in ss.nodeStates
+                            :: 
+                            && ReplicaInit(ss.nodeStates[r], r, c1)
+                            && ReplicaInit(ss.nodeStates[r], r, c2)
+            ==>
+            c1 == c2;
+        }
+
+       assert Inv_Constant_Fields(ss);
+    }
 
 
     lemma Lemma_State_Transition_Holds_Inv(ss : SystemState, ss' : SystemState)
