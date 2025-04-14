@@ -19,7 +19,7 @@ module M_Replica {
     datatype ReplicaState = ReplicaState(
         id : Address,
         bc : Blockchain,
-        c : Configuration,
+        // c : Configuration,
         viewNum : nat,
         prepareQC : Cert,
         commitQC : Cert,
@@ -30,11 +30,11 @@ module M_Replica {
     /**
      *  Replica Initialization
      */
-    predicate ReplicaInit(r : ReplicaState, id : Address, c : Configuration) 
+    predicate ReplicaInit(r : ReplicaState, id : Address) 
     {
         && r.id == id
-        && r.bc == [c.genesisBlock]
-        && r.c == c
+        && r.bc == [M_SpecTypes.Genesis_Block]
+        // && r.c == c
         && r.viewNum == 1
         && r.prepareQC == CertNone
         && r.commitQC == CertNone
@@ -96,7 +96,7 @@ module M_Replica {
 
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     {
-        var newLeader := leader(r.viewNum+1, r.c);
+        var newLeader := leader(r.viewNum+1);
         // var newViewMsg := MsgWithRecipient(Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone), newLeader);
         var newViewMsg := Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
         && r' == r.(
@@ -107,7 +107,7 @@ module M_Replica {
 
     predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
     {
-        var leader := leader(r.viewNum, r.c);
+        var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
             assume r.viewNum > 0;
@@ -142,11 +142,11 @@ module M_Replica {
 
     ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     {
-        var leader := leader(r.viewNum, r.c);
+        var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
-            if |matchMsgs| >= quorum(|r.c.nodes|)
+            if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 // var m :| m in matchMsgs;
                 // forall m | m in matchMsgs
@@ -174,11 +174,11 @@ module M_Replica {
 
     ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     {
-        var leader := leader(r.viewNum, r.c);
+        var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_PreCommit, r.viewNum);
-            if |matchMsgs| >= quorum(|r.c.nodes|)
+            if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 var m :| m in matchMsgs;
                 // forall m | m in matchMsgs
@@ -203,11 +203,11 @@ module M_Replica {
 
     ghost predicate UponDecide(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     {
-        var leader := leader(r.viewNum, r.c);
+        var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Commit, r.viewNum);
-            if |matchMsgs| >= quorum(|r.c.nodes|)
+            if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 var m :| m in matchMsgs;
                 // forall m | m in matchMsgs

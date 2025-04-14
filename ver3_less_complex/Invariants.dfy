@@ -15,11 +15,9 @@ module M_Invariants {
      */
     ghost predicate Inv_Constant_Fields(ss : SystemState)
     {
-      && ss.configuration.honestNodes == Honest_Nodes
-      && ss.configuration.adversaryNodes == Adversary_Nodes
+      && ss.adversary.byz_nodes == M_SpecTypes.Adversary_Nodes
+      && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
     }
-    // {
-    // }
 
 
     /**

@@ -18,10 +18,11 @@ module M_Adversary {
     /**
      * Initial state of adversary
      */
-    predicate AdversaryInit(a : Adversary, c : Configuration)
+    predicate AdversaryInit(a : Adversary)
     {
-        &&  a.byz_nodes <= c.nodes  // byzantine nodes should exists in the set of all nodes.
-        && |a.byz_nodes| <= f(|c.nodes|)    // the counts of byzantine nodes should not exceed 1/3 of all nodes.
+        && a.byz_nodes == M_SpecTypes.Adversary_Nodes
+        &&  a.byz_nodes <= M_SpecTypes.All_Nodes  // byzantine nodes should exists in the set of all nodes.
+        && |a.byz_nodes| <= f(|M_SpecTypes.All_Nodes|)    // the counts of byzantine nodes should not exceed 1/3 of all nodes.
     }
 
     /**

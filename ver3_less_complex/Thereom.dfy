@@ -49,20 +49,21 @@ module M_Thereom {
      */
 
     lemma Lemma_Initial_State_Holds_Inv(ss : SystemState)
-    requires SystemInit(ss, ss.configuration)
+    requires SystemInit(ss)
     ensures Inv_All(ss)
     {
         // Replica initialization would not change configuration
-        calc {
-            forall r, c1, c2 | r in ss.nodeStates
-                            :: 
-                            && ReplicaInit(ss.nodeStates[r], r, c1)
-                            && ReplicaInit(ss.nodeStates[r], r, c2)
-            ==>
-            c1 == c2;
-        }
+        // calc {
+        //     forall r | r in ss.nodeStates
+        //                     :: 
+        //                     && ReplicaInit(ss.nodeStates[r], r)
+        //                     && ReplicaInit(ss.nodeStates[r], r)
+        //     ;
+        //     // ==>
+        //     // c1 == c2;
+        // }
 
-       assert Inv_Constant_Fields(ss);
+    //    assert Inv_Constant_Fields(ss);
     }
 
 

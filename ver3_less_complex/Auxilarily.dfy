@@ -40,7 +40,7 @@ module M_AuxilarilyFunc {
         (setSize*2 - 1) / 3 + 1
     }  
 
-    function leader(round : nat, c : Configuration) : Address
+    function leader(round : nat) : Address
 
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Msg>
     {

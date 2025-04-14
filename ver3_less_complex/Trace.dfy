@@ -7,9 +7,9 @@ module M_Trace {
 
     type Trace = nat -> SystemState
 
-    ghost predicate ValidTrace(t : Trace, c : Configuration)
+    ghost predicate ValidTrace(t : Trace)
     {
-        && SystemInit(t(0), c)
+        && SystemInit(t(0))
         && (forall i : nat :: && ValidSystemState(t(i))
                               && SystemNext(t(i), t(i+1)))
     }

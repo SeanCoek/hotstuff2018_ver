@@ -16,7 +16,7 @@ module M_System {
      * @param msgSent -> all message sent by replicas
      */
     datatype SystemState = SystemState(
-        configuration : Configuration,
+        // configuration : Configuration,
         nodeStates : map<Address, ReplicaState>,
         adversary : Adversary,
         msgSent : set<Msg>
@@ -28,8 +28,8 @@ module M_System {
      */
     predicate IsHonest(ss : SystemState, r : Address)
     {
-        // r in ss.nodeStates.Keys - ss.adversary.byz_nodes
-        r in ss.configuration.honestNodes
+        r in ss.nodeStates.Keys - ss.adversary.byz_nodes
+        // r in M_SpecTypes.Honest_Nodes
     }
 
     ghost predicate ValidSystemState(ss : SystemState)
@@ -40,10 +40,12 @@ module M_System {
     /**
      * Definition of initial state of system
      */
-    predicate SystemInit(ss : SystemState, c : Configuration)
+    predicate SystemInit(ss : SystemState)
     {
-        && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r, c))
-        && AdversaryInit(ss.adversary, c)
+        && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
+        && AdversaryInit(ss.adversary)
+        && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
+        // && ss.configuration == c
     }
 
 
@@ -76,7 +78,8 @@ module M_System {
                 && ss'.nodeStates == ss.nodeStates
                 && AdversaryNext(ss.adversary, msgRecievedSingleSet, ss'.adversary, outMsg)
         )
-        && ss'.configuration == ss.configuration
+        && ss.adversary.byz_nodes == ss'.adversary.byz_nodes
+        // && ss'.configuration == ss.configuration
     }
 
     /**

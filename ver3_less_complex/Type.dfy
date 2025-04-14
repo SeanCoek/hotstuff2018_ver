@@ -42,11 +42,16 @@ module M_SpecTypes {
     const Honest_Nodes : set<Address>
 
     const Adversary_Nodes : set<Address>
+
+    const All_Nodes : set<Address> := Honest_Nodes + Adversary_Nodes
+
+    const Genesis_Block : Block
     
-    datatype Configuration = Configuration(
-        honestNodes : set<Address> := Honest_Nodes,
-        adversaryNodes : set<Address> := Adversary_Nodes,
-        nodes : set<Address> := honestNodes + adversaryNodes,   // all the nodes, containing byzantine nodes
-        genesisBlock : Block
-    )
+    // refactor as global
+    // datatype Configuration = Configuration(
+    //     honestNodes : set<Address> := Honest_Nodes,
+    //     adversaryNodes : set<Address> := Adversary_Nodes,
+    //     nodes : set<Address> := honestNodes + adversaryNodes,   // all the nodes, containing byzantine nodes
+    //     genesisBlock : Block
+    // )
 }
