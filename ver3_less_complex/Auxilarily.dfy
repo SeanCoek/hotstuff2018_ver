@@ -35,10 +35,80 @@ module M_AuxilarilyFunc {
     *          the assumption that no more than `f(setSeize)` validators are
     *          Byzantine.
     */
-    function quorum(setSize : nat) : nat
+    function quorum(setSize : nat) : (ret: nat)
+    requires setSize > 0
+    ensures ret <= setSize
     {
         (setSize*2 - 1) / 3 + 1
     }  
+
+    lemma LemmaTwoQuorumIntersection(
+                                    allNodes : set<Address>,
+                                    byzNodes : set<Address>,
+                                    q1 : set<Address>,
+                                    q2 : set<Address>)
+    requires |allNodes| > 0
+    requires q1 <= allNodes && |q1| == quorum(|allNodes|)
+    requires q2 <= allNodes && |q2| == quorum(|allNodes|)
+    requires |byzNodes| <= f(|allNodes|)
+    ensures var honest := allNodes - byzNodes; q1 * q2 * honest != {}
+    {
+        var honest := allNodes - byzNodes;
+        // prove q1*q2*honest != {}
+        calc {
+            |q1 * q2 * honest|;
+            ==
+            |(q1*q2) * honest|;
+            ==
+            |q1*q2| + |honest| - |(q1*q2) + honest|;
+            >=
+            |q1*q2| + |allNodes| - |byzNodes| - |(q1*q2) + honest|;
+            >= calc {
+                |q1 * q2|;
+                ==
+                |q1| + |q2| - |q1+q2|;
+                >= calc {
+                    |q1+q2|;
+                    <= { LemmaSubsetCardinality(q1+q2, allNodes); }
+                    |allNodes|;
+                    }
+                |q1| + |q2| - |allNodes|;
+                }
+            |q1| + |q2| - |byzNodes| - |(q1*q2) + honest|;
+            >= {LemmaSubsetCardinality((q1*q2)+honest, allNodes);}
+            |q1| + |q2| - |byzNodes| - |allNodes|;
+            ==
+            2 * quorum(|allNodes|) - |byzNodes| - |allNodes|;
+            >=
+            2 * quorum(|allNodes|) - f(|allNodes|) - |allNodes|;
+            >=
+            1;
+        }
+    }
+
+    lemma LemmaHonestInQuorum<T> (allNodes: set<T>, byzNodes: set<T>, q1: set<T>)
+    requires allNodes != {}
+    requires q1 <= allNodes
+    requires |q1| == quorum(|allNodes|)
+    requires |byzNodes| <= f(|allNodes|)
+    ensures var honest := allNodes - byzNodes; q1 * honest != {}
+    {
+        var honest := allNodes - byzNodes;
+
+        calc {
+            |q1 * honest|;
+            ==
+            |q1| + |honest| - |q1 + honest|;
+            >=
+            |q1| + |allNodes| - |byzNodes| - |q1 + honest|;
+            >= { LemmaSubsetCardinality(q1+honest, allNodes); }
+            |q1| - |byzNodes|;
+            >=
+            quorum(|allNodes|) - f(|allNodes|);
+            >= 
+            1;
+        }
+    }
 
     function leader(round : nat) : Address
 
@@ -122,14 +192,41 @@ module M_AuxilarilyFunc {
         || extension(b2, b1)
     }
 
+    /**
+     * A valid Quorum Certificate should hold the following constraints
+     */
     predicate ValidQC(qc : Cert)
-    requires qc.Cert?
+    // requires qc.Cert?
     {
-        var sgns := qc.signatures;
-        forall s | s in sgns
-                :: && s.Signature?
-                   && s.mType == qc.cType
-                   && s.viewNum == qc.viewNum
-                   && s.block == qc.block
+        && qc.Cert?
+        && (forall s | s in qc.signatures
+                    ::  && s.Signature?
+                        && s.mType == qc.cType
+                        && s.viewNum == qc.viewNum
+                        && s.block == qc.block
+                        && s.signer in All_Nodes
+            )
+        && (forall s1, s2 | s1 in qc.signatures && s2 in qc.signatures
+                         :: s1.signer != s2.signer
+                         )
+        && |qc.signatures| >= quorum(|All_Nodes|)
     }
+
+    function getVotesInValidQC(qc : Cert) : (votes: set<Signature>)
+    requires ValidQC(qc)
+    ensures |votes| >= quorum(|All_Nodes|)
+    {
+        qc.signatures
+    }
+
+    function getMajoritySignerInValidQC(qc : Cert) : (ret : set<Address>)
+    requires ValidQC(qc)
+    ensures forall s | s in qc.signatures :: s.signer in All_Nodes
+    ensures |ret| >= quorum(|All_Nodes|)
+    {
+        var votes := getVotesInValidQC(qc);
+        set vote | vote in votes
+                    :: vote.signer
+    }
+
 }

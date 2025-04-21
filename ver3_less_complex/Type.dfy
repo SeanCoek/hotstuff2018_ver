@@ -1,4 +1,4 @@
-include "Auxilarily.dfy"
+// include "Auxilarily.dfy"
 
 module M_SpecTypes {
 
@@ -25,6 +25,8 @@ module M_SpecTypes {
     ) | SigNone
 
     datatype MsgType = MT_NewView | MT_Prepare | MT_PreCommit | MT_Commit | MT_Decide
+
+    
 
     datatype Msg = Msg(
         mType : MsgType,
