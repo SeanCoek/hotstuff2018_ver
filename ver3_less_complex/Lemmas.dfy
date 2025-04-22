@@ -26,11 +26,11 @@ module M_Lemma {
     requires !NoConflict(cert1.block, cert2.block)
     ensures cert1.viewNum != cert2.viewNum
     {
-        var votesInCert1 := getVotesInValidQC(cert1);
-        var voterInCert1 := getMajoritySignerInValidQC(cert1);
+        // var votesInCert1 := getVotesInValidQC(cert1);
+        // var voterInCert1 := getMajoritySignerInValidQC(cert1);
 
-        var votesInCert2 := getVotesInValidQC(cert2);
-        var voterInCert2 := getMajoritySignerInValidQC(cert2);
+        // var votesInCert2 := getVotesInValidQC(cert2);
+        // var voterInCert2 := getMajoritySignerInValidQC(cert2);
 
         // assert voterInCert1 <= All_Nodes && voterInCert2 <= All_Nodes;
 
@@ -39,14 +39,14 @@ module M_Lemma {
             Axiom_Common_Constraints();
         }
 
-        assert voterInCert1 * voterInCert2 * Honest_Nodes != {} by {
-            LemmaTwoQuorumIntersection(
-                All_Nodes,
-                Adversary_Nodes,
-                voterInCert1,
-                voterInCert2
-            );
-        }
+        // assert voterInCert1 * voterInCert2 * Honest_Nodes != {} by {
+        //     LemmaTwoQuorumIntersection(
+        //         All_Nodes,
+        //         Adversary_Nodes,
+        //         voterInCert1,
+        //         voterInCert2
+        //     );
+        // }
     }
 
 

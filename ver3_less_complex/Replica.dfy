@@ -95,6 +95,7 @@ module M_Replica {
     }
 
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
     {
         var newLeader := leader(r.viewNum+1);
         // var newViewMsg := MsgWithRecipient(Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone), newLeader);
@@ -103,6 +104,28 @@ module M_Replica {
             viewNum := r.viewNum + 1
         )
         && outMsg == {newViewMsg}
+    }
+
+    lemma LemmaTestValidationOfTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    // requires UponNextView(r, r', outMsg)
+    // requires UponTimeOut(r, r', outMsg)
+    requires UponPrepare(r, r', outMsg)
+    ensures ValidReplicaState(r')
+    {
+        var leader := leader(r.viewNum);
+        if (leader == r.id){
+            calc {
+                r'.msgRecieved;
+                >=
+                r.msgRecieved;
+            }
+            // assert ValidReplicaState(r');
+        }
+        else {  // OBSERVE
+            // assert r' == r;
+            // assert ValidReplicaState(r');
+        }
     }
 
     predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
@@ -122,22 +145,29 @@ module M_Replica {
 
         else
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
-            forall m | m in matchMsgs ::
-                var sig := Signature(r.id, m.mType, m.viewNum, m.block);
-                var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
-                // var voteMsg := MsgWithRecipient(vote, leader);
-                
-                if && m.block.Block?
-                   && m.justify.Cert? 
-                   && extension(m.block, m.justify.block) 
-                   && r.commitQC.Cert?
-                   && safeNode(m.block, m.justify, r.commitQC)
-                then
-                    // vote in outMsg
-                    outMsg == {vote}
-                else
-                    !(vote in outMsg)
-                    // outMsg == {}
+            // var votes : set<Msg> := {};
+            && (forall m | m in matchMsgs ::
+                    var sig := Signature(r.id, m.mType, m.viewNum, m.block);
+                    var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
+                    // var voteMsg := MsgWithRecipient(vote, leader);
+                    
+                    if && m.block.Block?
+                    && m.justify.Cert? 
+                    && extension(m.block, m.justify.block) 
+                    && r.commitQC.Cert?
+                    && safeNode(m.block, m.justify, r.commitQC)
+                    then
+                        // vote in outMsg
+                        // votes := votes + {vote};
+                        // && r' == r
+                        && outMsg == {vote}
+                    else
+                        // votes := votes - {vote};
+                        // && r' == r
+                        && !(vote in outMsg)
+                        // outMsg == {}
+                )
+            && r' == r
     }
 
     ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -146,14 +176,21 @@ module M_Replica {
         if leader == r.id // Leader
         then
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
-            if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
+            // What if these message contain different voted blocks?
+            // Split thess message by responding block, and get the group with the most elements.
+            var splitSets := splitMsgByBlocks(matchMsgs);
+            var maxSet :| && maxSet in splitSets
+                          && (forall sset | sset in splitSets
+                                    :: |maxSet| >= |sset|);
+            if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 // var m :| m in matchMsgs;
                 // forall m | m in matchMsgs
                 //         ::
-                var m :| m in matchMsgs;
-                var sgns := ExtractSignatrues(matchMsgs);
+                var m :| m in maxSet;
+                var sgns := ExtractSignatrues(maxSet);
                 var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                // assert ValidQC(prepareQC);
                 var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
                 && r' == r.(msgRecieved := r.msgRecieved + {precommitMsg})
                 // && outMsg == Multicast(precommitMsg, r.c.nodes)
@@ -163,13 +200,20 @@ module M_Replica {
                 && |outMsg| == 0
         else
             var matchQCs := getMatchQC(r.msgRecieved, MT_Prepare, r.viewNum);
-            forall m | m in matchQCs ::
+            // What if these QCs contain different certificated block? 
+            // Impossible in theory, but have to prove it
+            if |matchQCs| > 0 
+            then 
+                var m :| m in matchQCs;
                 var sig := Signature(r.id, m.cType, m.viewNum, m.block);
                 var vote := Msg(MT_PreCommit, r.viewNum, m.block, CertNone, sig);
                 // var voteMsg := MsgWithRecipient(vote, leader);
                 && r' == r.(prepareQC := m)
                 && vote in outMsg
-                
+            
+            else 
+                && r' == r
+                && |outMsg| == 0
     }
 
     ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -238,8 +282,21 @@ module M_Replica {
     {
         // TODO: invarians about a replica state
         && Inv_Blockchain_Inner_Consistency(s.bc)
-        // && getAncestors(s.commitQC) in s.bc
-        // true
+        && s.bc <= getAncestors(s.commitQC.block)
+        && (s.prepareQC.Cert? ==> 
+                                && ValidQC(s.prepareQC)
+                                && exists m | m in s.msgRecieved
+                                            ::
+                                            && m.mType.MT_Prepare?
+                                            && m.justify.viewNum == s.prepareQC.viewNum
+            )
+        && (s.commitQC.Cert? ==>
+                                && ValidQC(s.commitQC)
+                                && exists m | m in s.msgRecieved
+                                            ::
+                                            && m.mType.MT_PreCommit?
+                                            && m.justify.viewNum == s.commitQC.viewNum
+            )
     }
 
     /**

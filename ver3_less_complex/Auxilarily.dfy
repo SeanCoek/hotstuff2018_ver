@@ -157,12 +157,12 @@ module M_AuxilarilyFunc {
     ensures getNewBlock(parent).Block?
     ensures {:axiom}getNewBlock(parent).parent == parent
 
-    function getAncestors(b : Block) : set<Block>
+    function getAncestors(b : Block) : seq<Block>
     requires b.Block?
     {
         match (b.parent != EmptyBlock){
-            case true => {b} + getAncestors(b.parent)
-            case false => {b}
+            case true => getAncestors(b.parent) + [b]
+            case false => [b]
         }
     }
 
@@ -229,4 +229,22 @@ module M_AuxilarilyFunc {
                     :: vote.signer
     }
 
+
+    // function relatedMsgForPrepareQC(
+    //     msgRecieved : set<Msg>,
+    //     prepareQC : Cert
+    // ) : set<Msg>
+    // {
+    //     set m | 
+    //             && m in msgRecieved
+    //             && m.
+    // }
+
+    function splitMsgByBlocks(msgs : set<Msg>) : set<set<Msg>>
+    {
+        set m | 
+                && m <= msgs
+                && (forall e1, e2 | e1 in m && e2 in m
+                                    :: e1.block == e2.block)
+    }
 }
