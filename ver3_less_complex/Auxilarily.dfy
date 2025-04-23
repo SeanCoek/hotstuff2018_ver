@@ -39,7 +39,8 @@ module M_AuxilarilyFunc {
     requires setSize > 0
     ensures ret <= setSize
     {
-        (setSize*2 - 1) / 3 + 1
+        // 2*(setSize - 1) / 3 + 1
+        2 * f(setSize) + 1
     }  
 
     lemma LemmaTwoQuorumIntersection(
@@ -194,6 +195,8 @@ module M_AuxilarilyFunc {
 
     /**
      * A valid Quorum Certificate should hold the following constraints
+     * Refer to the function "tverify(<qc.type, qc.view, qc.node>, qc.sig)" described in the paper
+     * It is supposed to be a threshold decryption
      */
     predicate ValidQC(qc : Cert)
     // requires qc.Cert?

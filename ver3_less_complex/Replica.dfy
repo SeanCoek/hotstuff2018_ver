@@ -30,7 +30,7 @@ module M_Replica {
     /**
      *  Replica Initialization
      */
-    predicate ReplicaInit(r : ReplicaState, id : Address) 
+    ghost predicate ReplicaInit(r : ReplicaState, id : Address)
     {
         && r.id == id
         && r.bc == [M_SpecTypes.Genesis_Block]
@@ -40,6 +40,15 @@ module M_Replica {
         && r.commitQC == CertNone
         && r.msgRecieved == {}
         // && r.highestExecutedBlock == EmptyBlock
+    }
+
+    lemma LemmaInitReplicaIsValid(r : ReplicaState)
+    requires ReplicaInit(r, r.id)
+    ensures ValidReplicaState(r)
+    {
+        // assert Inv_Blockchain_Inner_Consistency(r.bc);
+        // assert r.commitQC.CertNone?;
+        // assert r.prepareQC.CertNone?;
     }
 
 
@@ -282,8 +291,13 @@ module M_Replica {
     {
         // TODO: invarians about a replica state
         && Inv_Blockchain_Inner_Consistency(s.bc)
-        && s.bc <= getAncestors(s.commitQC.block)
-        && (s.prepareQC.Cert? ==> 
+        && (||(&& s.commitQC.Cert?
+               && s.commitQC.block.Block?
+               && s.bc <= getAncestors(s.commitQC.block)
+               )
+            ||(s.commitQC.CertNone?)
+            )
+        && (s.prepareQC.Cert? ==>
                                 && ValidQC(s.prepareQC)
                                 && exists m | m in s.msgRecieved
                                             ::

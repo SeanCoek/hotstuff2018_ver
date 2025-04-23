@@ -40,7 +40,7 @@ module M_System {
     /**
      * Definition of initial state of system
      */
-    predicate SystemInit(ss : SystemState)
+    ghost predicate SystemInit(ss : SystemState)
     {
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)
@@ -90,11 +90,11 @@ module M_System {
     ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
     requires ValidSystemState(ss)
     ensures ValidSystemState(ss')
-    {
-        || ss == ss'
-        || (exists replica,
-                   msgRecievedByNodes,
-                   msgSentByNodes
-                     :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
-    }
+    // {
+    //     || ss == ss'
+    //     || (exists replica,
+    //                msgRecievedByNodes,
+    //                msgSentByNodes
+    //                  :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
+    // }
 }

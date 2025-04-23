@@ -38,7 +38,8 @@ module M_Invariants {
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
                           ::
-                            m1 == m2
+                            && m1 == m2
+                            && m1.partialSig.block == m2.partialSig.block
     }
 
 
@@ -60,7 +61,8 @@ module M_Invariants {
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
                           ::
-                            m1 == m2
+                            && m1 == m2
+                            && m1.partialSig.block == m2.partialSig.block
     }
 
 
@@ -82,7 +84,8 @@ module M_Invariants {
                             && IsHonest(ss, m1.partialSig.signer)
                             && m1.viewNum == m2.viewNum
                           ::
-                            m1 == m2
+                            && m1 == m2
+                            && m1.partialSig.block == m2.partialSig.block
     }
 
     ghost predicate Inv_Honest_Node_Commit_Not_Conflict_Block(ss : SystemState)

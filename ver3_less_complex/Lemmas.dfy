@@ -1,9 +1,11 @@
 include "Type.dfy"
 include "Auxilarily.dfy"
+include "System.dfy"
 
 module M_Lemma {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
+    import opened M_System
 
     lemma{:axiom} Axiom_Byz_Constraints()
     ensures |Adversary_Nodes| <= f(|Honest_Nodes| + |Adversary_Nodes|)
@@ -49,5 +51,20 @@ module M_Lemma {
         // }
     }
 
+    lemma LemmaViewDiffOnConflictCertificate2(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall r1, r2, cert1, cert2 | && r1 in ss.nodeStates.Keys
+                                          && r2 in ss.nodeStates.Keys
+                                          && IsHonest(ss, r1)
+                                          && IsHonest(ss, r2)
+                                          && cert1 == ss.nodeStates[r1].prepareQC && cert1.Cert? 
+                                          && cert2 == ss.nodeStates[r2].prepareQC && cert2.Cert?
+                                          && cert1.block.Block?
+                                          && cert2.block.Block?
+                                          && !NoConflict(cert1.block, cert2.block)
+                                        ::cert1.viewNum != cert2.viewNum
+    {
+        
+    }
 
 }
