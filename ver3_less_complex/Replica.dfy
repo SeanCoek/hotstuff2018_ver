@@ -44,11 +44,22 @@ module M_Replica {
 
     lemma LemmaInitReplicaIsValid(r : ReplicaState)
     requires ReplicaInit(r, r.id)
+    requires M_SpecTypes.All_Nodes != {}
     ensures ValidReplicaState(r)
     {
         // assert Inv_Blockchain_Inner_Consistency(r.bc);
         // assert r.commitQC.CertNone?;
         // assert r.prepareQC.CertNone?;
+        // assert r.bc == [M_SpecTypes.Genesis_Block];
+    }
+
+    lemma LemmaReplicaNextIsValid(r : ReplicaState, r' : ReplicaState)
+    requires M_SpecTypes.All_Nodes != {}
+    requires ValidReplicaState(r)
+    ensures forall inMsg, outMsg | ReplicaNext(r, inMsg, r', outMsg)
+                                :: ValidReplicaState(r')
+    {
+        
     }
 
 
@@ -113,7 +124,10 @@ module M_Replica {
             viewNum := r.viewNum + 1
         )
         && outMsg == {newViewMsg}
-    }
+
+        // LemmaTestValidationOfTransition(r, r', outMsg);
+        
+    } 
 
     lemma LemmaTestValidationOfTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
@@ -122,22 +136,37 @@ module M_Replica {
     requires UponPrepare(r, r', outMsg)
     ensures ValidReplicaState(r')
     {
-        var leader := leader(r.viewNum);
-        if (leader == r.id){
-            calc {
-                r'.msgRecieved;
-                >=
-                r.msgRecieved;
-            }
-            // assert ValidReplicaState(r');
-        }
-        else {  // OBSERVE
-            // assert r' == r;
-            // assert ValidReplicaState(r');
-        }
+        // var leader := leader(r.viewNum);
+        // if (leader == r.id){
+        //     calc {
+        //         r'.msgRecieved;
+        //         >=
+        //         r.msgRecieved;
+        //     }
+        // }
+        // else {  // OBSERVE
+        // }
+    }
+
+    lemma LemmaValidationHoldsInPreparePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires M_SpecTypes.All_Nodes != {}
+    requires ValidReplicaState(r)
+    requires UponPrepare(r, r', outMsg)
+    ensures ValidReplicaState(r')
+    {
+
+    }
+
+    lemma LemmaValidationHoldsInPreCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires UponPreCommit(r, r', outMsg)
+    requires ValidReplicaState(r)
+    ensures ValidReplicaState(r')
+    {
+
     }
 
     predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
+    requires ValidReplicaState(r)
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -180,6 +209,7 @@ module M_Replica {
     }
 
     ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -226,6 +256,8 @@ module M_Replica {
     }
 
     ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires M_SpecTypes.All_Nodes != {}
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -255,6 +287,8 @@ module M_Replica {
     }
 
     ghost predicate UponDecide(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires M_SpecTypes.All_Nodes != {}
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -276,18 +310,28 @@ module M_Replica {
         else
             var matchQCs := getMatchQC(r.msgRecieved, MT_Commit, r.viewNum);
             forall m | m in matchQCs ::
-                && r' == r.(
-                    bc := r.bc + [m.block]
+                && m.Cert?
+                && m.block.Block?
+                && var ancestors := getAncestors(m.block);
+                && (
+                    ||( && |ancestors| > |r.bc|
+                        && r' == r.(
+                                    bc := r.bc + ancestors[|r.bc|..])
+                    )
+                    || (&& |ancestors| <= |r.bc|
+                        && r' == r)
                 )
     }
 
     predicate UponTimeOut(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
     {
         UponNextView(r, r', outMsg)
     }
 
 
     ghost predicate ValidReplicaState(s : ReplicaState)
+    requires M_SpecTypes.All_Nodes != {}
     {
         // TODO: invarians about a replica state
         && Inv_Blockchain_Inner_Consistency(s.bc)
@@ -301,16 +345,26 @@ module M_Replica {
                                 && ValidQC(s.prepareQC)
                                 && exists m | m in s.msgRecieved
                                             ::
-                                            && m.mType.MT_Prepare?
-                                            && m.justify.viewNum == s.prepareQC.viewNum
+                                            && m.mType.MT_PreCommit?
+                                            && m.justify == s.prepareQC
             )
         && (s.commitQC.Cert? ==>
                                 && ValidQC(s.commitQC)
                                 && exists m | m in s.msgRecieved
                                             ::
-                                            && m.mType.MT_PreCommit?
-                                            && m.justify.viewNum == s.commitQC.viewNum
+                                            && m.mType.MT_Commit?
+                                            && m.justify == s.commitQC
             )
+        && (|| s.bc == [M_SpecTypes.Genesis_Block]
+            || (exists m | && m in s.msgRecieved
+                      && m.mType.MT_Decide?
+                      && m.justify.Cert?
+                      && ValidQC(m.justify)
+                      && m.justify.block.Block?
+                    ::
+                      s.bc <= getAncestors(m.justify.block)
+            )
+        )
     }
 
     /**
@@ -320,7 +374,7 @@ module M_Replica {
     {
         forall i1, i2 | 
                         && 0 < i2 <= |b|-1
-                        && i1 == i2-1 // TODO: Could be to strong
+                        && i1 == i2-1
                       ::
                         && b[i1].Block?
                         && b[i2].Block?

@@ -25,14 +25,6 @@ module M_Thereom {
                 :: consistentBlockchains(t(i).nodeStates[r1].bc, t(i).nodeStates[r2].bc)
     }
 
-
-    // lemma LemmaBlockchainConsistency(t : Trace, c : Configuration)
-    // requires ValidTrace(t, c)
-    // ensures consistency(t)
-    // {
-        
-    // }
-
     ghost predicate Inv_All(ss : SystemState)
     {
         && Inv_Constant_Fields(ss)
@@ -48,43 +40,22 @@ module M_Thereom {
      * Step 3 : These invariants imply the safety property.
      */
 
-    lemma Lemma_Initial_State_Holds_Inv(ss : SystemState)
-    requires SystemInit(ss)
-    // ensures Inv_All(ss)
-    ensures ValidSystemState(ss)
-    {
-        // Replica initialization would not change configuration
-        // calc {
-        //     forall r | r in ss.nodeStates
-        //                     :: 
-        //                     && ReplicaInit(ss.nodeStates[r], r)
-        //                     && ReplicaInit(ss.nodeStates[r], r)
-        //     ;
-        //     // ==>
-        //     // c1 == c2;
-        // }
-
-    //    assert Inv_Constant_Fields(ss);
-    }
-
-
-    lemma Lemma_State_Transition_Holds_Inv(ss : SystemState, ss' : SystemState)
-    requires Inv_All(ss)
-    requires SystemNext(ss, ss')
-    ensures Inv_All(ss')
-    {}
-
-
     lemma Lemma_Inv_Implies_Safety(ss : SystemState)
-    requires Inv_All(ss)
+    requires ValidSystemState(ss)
     ensures forall r1, r2 | 
-                            && r1 in ss.nodeStates
-                            && r2 in ss.nodeStates
+                            // && r1 in ss.nodeStates
+                            // && r2 in ss.nodeStates
                             && IsHonest(ss, r1)
                             && IsHonest(ss, r2)
                           :: consistentBlockchains(ss.nodeStates[r1].bc, ss.nodeStates[r2].bc)
-    {}
+    {
+        // var r1, r2 :| IsHonest(ss, r1) && IsHonest(ss, r2);
+        // assert ValidReplicaState(ss.nodeStates[r1]);
+        assert forall r | IsHonest(ss, r) :: ValidReplicaState(ss.nodeStates[r]);
+
+        assert ss.nodeStates.Keys - ss.adversary.byz_nodes != {};
+        var r1, r2 :| IsHonest(ss, r1) && IsHonest(ss, r2);
+    }
 
 
-    // lemma LemmaBlockchainConsistency()
 }

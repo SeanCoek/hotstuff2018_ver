@@ -1,12 +1,14 @@
 include "Type.dfy"
 include "Adversary.dfy"
 include "Replica.dfy"
+include "Auxilarily.dfy"
 
 module M_System {
 
     import opened M_SpecTypes
     import opened M_Replica
     import opened M_Adversary
+    import opened M_AuxilarilyFunc
 
     /**
      * Definition of a system state
@@ -32,9 +34,45 @@ module M_System {
         // r in M_SpecTypes.Honest_Nodes
     }
 
+    predicate Inv_Node_Constraint(ss : SystemState)
+    {
+        && |M_SpecTypes.All_Nodes| > 0
+        && |Adversary_Nodes| <= f(|All_Nodes|)
+        && M_SpecTypes.Honest_Nodes * M_SpecTypes.Adversary_Nodes == {}
+        && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
+        && ss.adversary.byz_nodes == M_SpecTypes.Adversary_Nodes
+    }
+
     ghost predicate ValidSystemState(ss : SystemState)
     {
-        forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
+        && Inv_Node_Constraint(ss)
+        && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
+    }
+
+    lemma Lemma_Initial_State_Holds_Is_Valid(ss : SystemState)
+    requires SystemInit(ss)
+    ensures ValidSystemState(ss)
+    {
+        // Replica initialization would not change configuration
+        // calc {
+        //     forall r | r in ss.nodeStates
+        //                     :: 
+        //                     && ReplicaInit(ss.nodeStates[r], r)
+        //                     && ReplicaInit(ss.nodeStates[r], r)
+        //     ;
+        //     // ==>
+        //     // c1 == c2;
+        // }
+
+    //    assert Inv_Constant_Fields(ss);
+    }
+
+    lemma Lemma_System_Next_Is_Valid(ss : SystemState, ss' : SystemState)
+    requires ValidSystemState(ss)
+    requires SystemNext(ss, ss')
+    ensures ValidSystemState(ss')
+    {
+        // Prove a valid state after system transition will still be valid
     }
 
     /**
@@ -89,12 +127,12 @@ module M_System {
      */
     ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
     requires ValidSystemState(ss)
-    ensures ValidSystemState(ss')
-    // {
-    //     || ss == ss'
-    //     || (exists replica,
-    //                msgRecievedByNodes,
-    //                msgSentByNodes
-    //                  :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
-    // }
+    // ensures ValidSystemState(ss')
+    {
+        || ss == ss'
+        || (exists replica,
+                   msgRecievedByNodes,
+                   msgSentByNodes
+                     :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
+    }
 }

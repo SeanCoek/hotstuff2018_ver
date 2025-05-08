@@ -49,8 +49,8 @@ module M_AuxilarilyFunc {
                                     q1 : set<Address>,
                                     q2 : set<Address>)
     requires |allNodes| > 0
-    requires q1 <= allNodes && |q1| == quorum(|allNodes|)
-    requires q2 <= allNodes && |q2| == quorum(|allNodes|)
+    requires q1 <= allNodes && |q1| >= quorum(|allNodes|)
+    requires q2 <= allNodes && |q2| >= quorum(|allNodes|)
     requires |byzNodes| <= f(|allNodes|)
     ensures var honest := allNodes - byzNodes; q1 * q2 * honest != {}
     {
@@ -78,7 +78,7 @@ module M_AuxilarilyFunc {
             |q1| + |q2| - |byzNodes| - |(q1*q2) + honest|;
             >= {LemmaSubsetCardinality((q1*q2)+honest, allNodes);}
             |q1| + |q2| - |byzNodes| - |allNodes|;
-            ==
+            >=
             2 * quorum(|allNodes|) - |byzNodes| - |allNodes|;
             >=
             2 * quorum(|allNodes|) - f(|allNodes|) - |allNodes|;
@@ -200,6 +200,7 @@ module M_AuxilarilyFunc {
      */
     predicate ValidQC(qc : Cert)
     // requires qc.Cert?
+    requires |All_Nodes| > 0
     {
         && qc.Cert?
         && (forall s | s in qc.signatures
@@ -209,7 +210,9 @@ module M_AuxilarilyFunc {
                         && s.block == qc.block
                         && s.signer in All_Nodes
             )
-        && (forall s1, s2 | s1 in qc.signatures && s2 in qc.signatures
+        && (forall s1, s2 | && s1 in qc.signatures 
+                            && s2 in qc.signatures
+                            && s1 != s2
                          :: s1.signer != s2.signer
                          )
         && |qc.signatures| >= quorum(|All_Nodes|)
@@ -231,17 +234,6 @@ module M_AuxilarilyFunc {
         set vote | vote in votes
                     :: vote.signer
     }
-
-
-    // function relatedMsgForPrepareQC(
-    //     msgRecieved : set<Msg>,
-    //     prepareQC : Cert
-    // ) : set<Msg>
-    // {
-    //     set m | 
-    //             && m in msgRecieved
-    //             && m.
-    // }
 
     function splitMsgByBlocks(msgs : set<Msg>) : set<set<Msg>>
     {
