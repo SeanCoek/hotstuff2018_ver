@@ -40,7 +40,13 @@ module M_AuxilarilyFunc {
     ensures ret <= setSize
     {
         // 2*(setSize - 1) / 3 + 1
-        2 * f(setSize) + 1
+        // 2 * f(setSize) + 1
+        // if setSize <= 3
+        // then 
+        //     setSize - f(setSize) + 1
+        // else
+        //     2 * f(setSize) + 1
+        setSize - f(setSize)
     }  
 
     lemma LemmaTwoQuorumIntersection(
@@ -84,6 +90,10 @@ module M_AuxilarilyFunc {
             2 * quorum(|allNodes|) - f(|allNodes|) - |allNodes|;
             >=
             1;
+
+            // 2 * (2*f + 1) - f - n
+            // 2 * (2 * (n-1)/3 + 1) - (n-1)/3 - n
+
         }
     }
 

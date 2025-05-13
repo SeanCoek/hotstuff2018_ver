@@ -343,6 +343,7 @@ module M_Replica {
             )
         && (s.prepareQC.Cert? ==>
                                 && ValidQC(s.prepareQC)
+                                && s.prepareQC.cType == MT_Prepare
                                 && exists m | m in s.msgRecieved
                                             ::
                                             && m.mType.MT_PreCommit?
@@ -350,6 +351,7 @@ module M_Replica {
             )
         && (s.commitQC.Cert? ==>
                                 && ValidQC(s.commitQC)
+                                && s.commitQC.cType == MT_PreCommit
                                 && exists m | m in s.msgRecieved
                                             ::
                                             && m.mType.MT_Commit?
