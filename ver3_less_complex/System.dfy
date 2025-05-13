@@ -80,10 +80,9 @@ module M_System {
      */
     ghost predicate SystemInit(ss : SystemState)
     {
+        && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)
-        && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
-        // && ss.configuration == c
     }
 
 
@@ -102,11 +101,11 @@ module M_System {
         inMsg: multiset<Msg>,
         outMsg : set<Msg>)
     {
-        // && (forall mr:MsgWithRecipient | mr in inMsg :: mr.recipient == replica)
-        // && var msgRecievedSingleSet := set mr:MsgWithRecipient | mr in inMsg :: mr.msg;
         && var msgRecievedSingleSet := set mr:Msg | mr in inMsg;
         && replica in ss.nodeStates
+        // fixed set of replica
         && ss.nodeStates.Keys == ss'.nodeStates.Keys
+        // separate different actions by replica's honesty
         && (
             if IsHonest(ss, replica) then
                 && ss'.nodeStates == ss.nodeStates[replica := ss'.nodeStates[replica]]
@@ -117,7 +116,7 @@ module M_System {
                 && AdversaryNext(ss.adversary, msgRecievedSingleSet, ss'.adversary, outMsg)
         )
         && ss.adversary.byz_nodes == ss'.adversary.byz_nodes
-        // && ss'.configuration == ss.configuration
+        && ss'.msgSent == ss.msgSent + outMsg
     }
 
     /**

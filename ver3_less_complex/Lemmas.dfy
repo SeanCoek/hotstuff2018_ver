@@ -17,7 +17,7 @@ module M_Lemma {
     lemma{:axiom} NoOuterClient()
     ensures forall cert : Signature :: cert.signer in All_Nodes
 
-    lemma LemmaHonestNodeOnlyVotePrepareOnceInOneView(ss : SystemState)
+    lemma LemmaHonestNodeOnlyVoteOnceInOneView(ss : SystemState)
     requires ValidSystemState(ss)
     ensures forall s1 : Signature, s2 : Signature | 
                                                     && s1.Signature?
@@ -88,9 +88,9 @@ module M_Lemma {
             // assert sign1.mType == sign2.mType;
             // assert sign1.block != sign2.block;
             // assert cert1.viewNum != cert2.viewNum by {
-            //     LemmaHonestNodeOnlyVotePrepareOnceInOneView(ss);
+            //     LemmaHonestNodeOnlyVoteOnceInOneView(ss);
             // }
-            LemmaHonestNodeOnlyVotePrepareOnceInOneView(ss);
+            LemmaHonestNodeOnlyVoteOnceInOneView(ss);
         }
     } 
 
@@ -110,4 +110,37 @@ module M_Lemma {
                                         ::
                                           cert1.viewNum != cert2.viewNum
 
+    
+    /**
+     * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
+     */
+    lemma LemmaViewDiffOnConflictCertificate(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
+                                          && IsHonest(ss, r2)
+                                          && ValidQC(cert1)
+                                          && ValidQC(cert2)
+                                          && cert1.cType == cert2.cType
+                                          && cert1.block.Block?
+                                          && cert2.block.Block?
+                                          && !NoConflict(cert1.block, cert2.block)
+                                        ::
+                                          cert1.viewNum != cert2.viewNum
+    {
+        forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
+                                          && IsHonest(ss, r2)
+                                          && ValidQC(cert1)
+                                          && ValidQC(cert2)
+                                          && cert1.cType == cert2.cType
+                                          && cert1.block.Block?
+                                          && cert2.block.Block?
+                                          && !NoConflict(cert1.block, cert2.block)
+        ensures cert1.viewNum != cert2.viewNum
+        {
+            var signers1 := getMajoritySignerInValidQC(cert1);
+            var signers2 := getMajoritySignerInValidQC(cert2);
+            LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
+            LemmaHonestNodeOnlyVoteOnceInOneView(ss);
+        }
+    }
 }

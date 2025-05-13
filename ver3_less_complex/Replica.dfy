@@ -62,6 +62,12 @@ module M_Replica {
         
     }
 
+    predicate Inv_Node_Constraint()
+    {   
+        && |M_SpecTypes.All_Nodes| > 0
+        && |Adversary_Nodes| <= f(|All_Nodes|)
+        && M_SpecTypes.Honest_Nodes * M_SpecTypes.Adversary_Nodes == {}
+    }
 
     /**
      * Consider this as a big step of state transition.
@@ -124,8 +130,6 @@ module M_Replica {
             viewNum := r.viewNum + 1
         )
         && outMsg == {newViewMsg}
-
-        // LemmaTestValidationOfTransition(r, r', outMsg);
         
     } 
 
@@ -171,7 +175,7 @@ module M_Replica {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
-            assume r.viewNum > 0;
+            // assume r.viewNum > 0;
             var matchMsgs := getMatchMsg(r.msgRecieved, MT_NewView, r.viewNum-1);
             var highQC := getHighQC(matchMsgs);
             var proposal := getNewBlock(highQC.block);
@@ -331,16 +335,24 @@ module M_Replica {
 
 
     ghost predicate ValidReplicaState(s : ReplicaState)
-    requires M_SpecTypes.All_Nodes != {}
+    // requires M_SpecTypes.All_Nodes != {}
     {
         // TODO: invarians about a replica state
+        //
+        && Inv_Node_Constraint()
+        && s.viewNum > 0
+        // The local blockchain should alwarys be consistent
         && Inv_Blockchain_Inner_Consistency(s.bc)
+        // If a replica accepted a commit certificate, 
+        // then the corresponding certified block should extend their local blockchain
         && (||(&& s.commitQC.Cert?
                && s.commitQC.block.Block?
                && s.bc <= getAncestors(s.commitQC.block)
                )
             ||(s.commitQC.CertNone?)
             )
+        // If a replica accepted a Prepare certificate,
+        // then it must received a PreCommit Message from the leader before, together with a valid Prepare certificate
         && (s.prepareQC.Cert? ==>
                                 && ValidQC(s.prepareQC)
                                 && s.prepareQC.cType == MT_Prepare
@@ -349,6 +361,8 @@ module M_Replica {
                                             && m.mType.MT_PreCommit?
                                             && m.justify == s.prepareQC
             )
+        // If a replica accepted a Precommit certificate (set it to its local variable `commitQC`),
+        // then it must received a Commit Message from the leader before, together with a valid Precommit certificate
         && (s.commitQC.Cert? ==>
                                 && ValidQC(s.commitQC)
                                 && s.commitQC.cType == MT_PreCommit
@@ -357,6 +371,8 @@ module M_Replica {
                                             && m.mType.MT_Commit?
                                             && m.justify == s.commitQC
             )
+        // If a replica received a Decide Message with a valid certificate,
+        // then it should always update its local blockchain accordingly.
         && (|| s.bc == [M_SpecTypes.Genesis_Block]
             || (exists m | && m in s.msgRecieved
                       && m.mType.MT_Decide?

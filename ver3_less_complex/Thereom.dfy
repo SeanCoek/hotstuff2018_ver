@@ -43,18 +43,21 @@ module M_Thereom {
     lemma Lemma_Inv_Implies_Safety(ss : SystemState)
     requires ValidSystemState(ss)
     ensures forall r1, r2 | 
-                            // && r1 in ss.nodeStates
-                            // && r2 in ss.nodeStates
                             && IsHonest(ss, r1)
                             && IsHonest(ss, r2)
                           :: consistentBlockchains(ss.nodeStates[r1].bc, ss.nodeStates[r2].bc)
     {
-        // var r1, r2 :| IsHonest(ss, r1) && IsHonest(ss, r2);
-        // assert ValidReplicaState(ss.nodeStates[r1]);
-        assert forall r | IsHonest(ss, r) :: ValidReplicaState(ss.nodeStates[r]);
 
-        assert ss.nodeStates.Keys - ss.adversary.byz_nodes != {};
-        var r1, r2 :| IsHonest(ss, r1) && IsHonest(ss, r2);
+        forall r1, r2 | 
+                            && IsHonest(ss, r1)
+                            && IsHonest(ss, r2)
+        ensures consistentBlockchains(ss.nodeStates[r1].bc, ss.nodeStates[r2].bc)
+        {
+            var s1, s2 := ss.nodeStates[r1], ss.nodeStates[r2];
+            if ReplicaInit(s1, s1.id) && ReplicaInit(s2, s2.id) {
+                assert s1.bc <= s2.bc || s2.bc <= s1.bc;
+            }
+        }
     }
 
 
