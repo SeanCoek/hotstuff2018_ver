@@ -193,11 +193,11 @@ module M_Replica {
                     var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
                     // var voteMsg := MsgWithRecipient(vote, leader);
                     
-                    if && m.block.Block?
-                    && m.justify.Cert? 
-                    && extension(m.block, m.justify.block) 
-                    && r.commitQC.Cert?
-                    && safeNode(m.block, m.justify, r.commitQC)
+                    if  && m.block.Block?
+                        && m.justify.Cert? 
+                        && extension(m.block, m.justify.block) 
+                        && r.commitQC.Cert?
+                        && safeNode(m.block, m.justify, r.commitQC)
                     then
                         // vote in outMsg
                         // votes := votes + {vote};

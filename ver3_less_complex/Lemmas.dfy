@@ -17,18 +17,46 @@ module M_Lemma {
     lemma{:axiom} NoOuterClient()
     ensures forall cert : Signature :: cert.signer in All_Nodes
 
+    lemma LemmaExistVoteMsgIfCertificateFormed(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                          ::
+                             && (forall s : Signature | && s in m.justify.signatures
+                                                        && s.Signature?
+                                                     ::
+                                                        && (exists m : Msg | && m in ss.msgSent
+                                                                          ::
+                                                                             && m.partialSig.Signature?
+                                                                             && m.partialSig == s
+                                                            ) 
+                                )
+    {
+
+    }
+
     lemma LemmaHonestNodeOnlyVoteOnceInOneView(ss : SystemState)
     requires ValidSystemState(ss)
-    ensures forall s1 : Signature, s2 : Signature | 
-                                                    && s1.Signature?
-                                                    && s2.Signature?
-                                                    && IsHonest(ss, s1.signer)
-                                                    && IsHonest(ss, s2.signer)
-                                                    && s1.signer == s2.signer
-                                                    && s1.viewNum == s2.viewNum
-                                                    && s1.mType == s2.mType
-                                                  ::
-                                                    s1.block == s2.block
+    ensures forall m1 : Msg, m2 : Msg | && m1 in ss.msgSent
+                                        && m2 in ss.msgSent
+                                        && m1.partialSig.Signature?
+                                        && m2.partialSig.Signature?
+                                        && m1.partialSig.signer == m2.partialSig.signer
+                                        && IsHonest(ss, m1.partialSig.signer)
+                                        && m1.partialSig.mType == m2.partialSig.mType
+                                        && m1.partialSig.viewNum == m2.partialSig.viewNum
+                                      ::
+                                        m1.partialSig.block != m2.partialSig.block
+
+    // ensures forall s1 : Signature, s2 : Signature | 
+    //                                                 && s1.Signature?
+    //                                                 && s2.Signature?
+    //                                                 && s1.signer == s2.signer
+    //                                                 && IsHonest(ss, s1.signer)
+    //                                                 && s1.viewNum == s2.viewNum
+    //                                                 && s1.mType == s2.mType
+    //                                               ::
+    //                                                 s1.block == s2.block
     {
 
     }
@@ -51,13 +79,14 @@ module M_Lemma {
 
     {
 
-        forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
-                                          && IsHonest(ss, r2)
-                                          && cert1 == ss.nodeStates[r1].prepareQC && cert1.Cert? 
-                                          && cert2 == ss.nodeStates[r2].prepareQC && cert2.Cert?
-                                          && cert1.block.Block?
-                                          && cert2.block.Block?
-                                          && !NoConflict(cert1.block, cert2.block)
+        forall r1, r2, cert1, cert2 |   && IsHonest(ss, r1)
+                                        && IsHonest(ss, r2)
+                                        && cert1 == ss.nodeStates[r1].prepareQC && cert1.Cert? 
+                                        && cert2 == ss.nodeStates[r2].prepareQC && cert2.Cert?
+                                        && cert1.block.Block?
+                                        && cert2.block.Block?
+                                        && !NoConflict(cert1.block, cert2.block)
+
         ensures cert1.viewNum != cert2.viewNum
         {
             // calc {
@@ -94,53 +123,65 @@ module M_Lemma {
         }
     } 
 
-    /**
-     * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
-     */
-    lemma LemmaViewDiffOnConflictCertificateCommit(ss : SystemState)
-    // requires All_Nodes != {}
-    requires ValidSystemState(ss)
-    ensures forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
-                                          && IsHonest(ss, r2)
-                                          && cert1 == ss.nodeStates[r1].commitQC && cert1.Cert? 
-                                          && cert2 == ss.nodeStates[r2].commitQC && cert2.Cert?
-                                          && cert1.block.Block?
-                                          && cert2.block.Block?
-                                          && !NoConflict(cert1.block, cert2.block)
-                                        ::
-                                          cert1.viewNum != cert2.viewNum
-
     
     /**
      * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
      */
     lemma LemmaViewDiffOnConflictCertificate(ss : SystemState)
     requires ValidSystemState(ss)
-    ensures forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
-                                          && IsHonest(ss, r2)
-                                          && ValidQC(cert1)
-                                          && ValidQC(cert2)
-                                          && cert1.cType == cert2.cType
-                                          && cert1.block.Block?
-                                          && cert2.block.Block?
-                                          && !NoConflict(cert1.block, cert2.block)
+    ensures forall m1, m2, cert1, cert2 |   && m1 in ss.msgSent
+                                            && m2 in ss.msgSent
+                                            && cert1 == m1.justify
+                                            && cert2 == m2.justify
+                                            && ValidQC(cert1)
+                                            && ValidQC(cert2)
+                                            && cert1.cType == cert2.cType
+                                            && cert1.block.Block?
+                                            && cert2.block.Block?
+                                            && !NoConflict(cert1.block, cert2.block)
                                         ::
-                                          cert1.viewNum != cert2.viewNum
+                                            cert1.viewNum != cert2.viewNum
     {
-        forall r1, r2, cert1, cert2 | && IsHonest(ss, r1)
-                                          && IsHonest(ss, r2)
-                                          && ValidQC(cert1)
-                                          && ValidQC(cert2)
-                                          && cert1.cType == cert2.cType
-                                          && cert1.block.Block?
-                                          && cert2.block.Block?
-                                          && !NoConflict(cert1.block, cert2.block)
+        // forall r1, r2, cert1, cert2 |   && IsHonest(ss, r1)
+        //                                 && IsHonest(ss, r2)
+        //                                 && ValidQC(cert1)
+        //                                 && ValidQC(cert2)
+        //                                 && cert1.cType == cert2.cType
+        //                                 && cert1.block.Block?
+        //                                 && cert2.block.Block?
+        //                                 && !NoConflict(cert1.block, cert2.block)
+        forall  m1, m2, cert1, cert2 |  && m1 in ss.msgSent
+                                        && m2 in ss.msgSent
+                                        && cert1 == m1.justify
+                                        && cert2 == m2.justify
+                                        && ValidQC(cert1)
+                                        && ValidQC(cert2)
+                                        && cert1.cType == cert2.cType
+                                        && cert1.block.Block?
+                                        && cert2.block.Block?
+                                        && !NoConflict(cert1.block, cert2.block)
         ensures cert1.viewNum != cert2.viewNum
         {
             var signers1 := getMajoritySignerInValidQC(cert1);
             var signers2 := getMajoritySignerInValidQC(cert2);
-            LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
-            LemmaHonestNodeOnlyVoteOnceInOneView(ss);
+            // LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
+            assert signers1 * signers2 * Honest_Nodes != {} by
+            {
+                LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
+            }
+            var replica :| replica in signers1 * signers2 * Honest_Nodes;
+            var sign1 :| && sign1 in cert1.signatures
+                         && sign1.signer == replica;
+            var sign2 :| && sign2 in cert2.signatures
+                         && sign2.signer == replica;
+            assert sign1 != sign2;
+            calc {
+                sign1 != sign2;
+                ==> { LemmaHonestNodeOnlyVoteOnceInOneView(ss);
+                      LemmaExistVoteMsgIfCertificateFormed(ss);
+                    }
+                cert1.viewNum != cert2.viewNum;
+            }
         }
     }
 }

@@ -80,6 +80,7 @@ module M_System {
      */
     ghost predicate SystemInit(ss : SystemState)
     {
+        && Inv_Node_Constraint(ss)
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)

@@ -252,4 +252,22 @@ module M_AuxilarilyFunc {
                 && (forall e1, e2 | e1 in m && e2 in m
                                     :: e1.block == e2.block)
     }
+
+    function argmin<T>(s: set<T>, f: T -> int) : (ret : T)
+    requires s != {}
+    ensures forall x :: x in s ==> f(ret) <= f(x)
+    ensures ret in s
+    {
+        var min :| min in s && forall x :: x in s ==> f(min) <= f(x);
+        min
+    }
+
+    function argmax<T>(s: set<T>, f: T -> int) : (ret : T)
+    requires s != {}
+    ensures forall x :: x in s ==> f(ret) >= f(x)
+    ensures ret in s
+    {
+        var max :| max in s && forall x :: x in s ==> f(max) >= f(x);
+        max
+    }
 }
