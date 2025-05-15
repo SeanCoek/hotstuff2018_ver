@@ -121,7 +121,7 @@ module M_Thereom {
                                               && !NoConflict(m1.justify.block, m2.justify.block)
              )
     {
-        // Assume the negation of the conclusion
+        // The negation of the conclusion
         if (exists r, m1 : Msg, m2 : Msg :: && IsHonest(ss, r)
                                               && m1 in ss.nodeStates[r].msgRecieved
                                               && m2 in ss.nodeStates[r].msgRecieved
@@ -149,9 +149,18 @@ module M_Thereom {
                 LemmaViewDiffOnConflictCertificate(ss);
             }
 
-            // Contradiction
+            // By asserting false at the end, we could check whether the `IF` statement succeed or not
+            // Asserting false should always raise en error, if not, then this assertion never been called, which means the IF statement is false.
             assert false;
         }
     }
 
+    lemma Lemma_Test_Contradiction()
+    ensures 1 + 1 == 2
+    {
+        if !(1+1==2) {
+            assert false;
+        }
+        assert false;
+    }
 }
