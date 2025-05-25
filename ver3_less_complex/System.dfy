@@ -99,7 +99,8 @@ module M_System {
         ss : SystemState, 
         ss' : SystemState, 
         replica : Address, 
-        inMsg: multiset<Msg>,
+        // inMsg: multiset<Msg>,
+        inMsg : set<Msg>,
         outMsg : set<Msg>)
     {
         && var msgRecievedSingleSet := set mr:Msg | mr in inMsg;
@@ -130,9 +131,8 @@ module M_System {
     // ensures ValidSystemState(ss')
     {
         || ss == ss'
-        || (exists replica,
-                   msgRecievedByNodes,
-                   msgSentByNodes
-                     :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
+        || (exists replica, msgRecievedByNodes, msgSentByNodes
+                   | msgRecievedByNodes <= ss.msgSent
+                  :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
     }
 }

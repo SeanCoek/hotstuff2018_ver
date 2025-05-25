@@ -210,9 +210,11 @@ module M_AuxilarilyFunc {
      */
     predicate ValidQC(qc : Cert)
     // requires qc.Cert?
-    requires |All_Nodes| > 0
+    // requires |All_Nodes| > 0
     {
+        && |All_Nodes| > 0
         && qc.Cert?
+        && qc.block.Block?
         && (forall s | s in qc.signatures
                     ::  && s.Signature?
                         && s.mType == qc.cType
@@ -270,4 +272,5 @@ module M_AuxilarilyFunc {
         var max :| max in s && forall x :: x in s ==> f(max) >= f(x);
         max
     }
+
 }

@@ -184,4 +184,71 @@ module M_Lemma {
             }
         }
     }
+
+    lemma LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall r, msgs | && IsHonest(ss, r)
+                             && msgs == ss.nodeStates[r].msgRecieved
+                          ::
+                             && msgs <= ss.msgSent
+    // {
+
+    // }
+
+    lemma LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                             && m.justify.cType == MT_PreCommit
+                          ::
+                            //  && (exists m2 : Msg :: && m2 in ss.msgSent
+                            //                      && ValidQC(m2.justify)
+                            //                      && m2.justify.cType == MT_PreCommit
+                            //                      && m2.justify.block == m.justify.block
+                            //                      && m2.justify.viewNum == m.justify.viewNum
+                            // )
+                             && (exists m3 : Msg :: && m3 in ss.msgSent
+                                                 && ValidQC(m3.justify)
+                                                 && m3.justify.cType == MT_Prepare
+                                                 && m3.justify.block == m.justify.block
+                                                 && m3.justify.viewNum == m.justify.viewNum
+                            )
+    // {
+
+    // }
+
+    lemma LemmaExistValidPrecommitQCForEveryValidCommitQC(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                             && m.justify.cType == MT_Commit
+                          ::
+                             && (exists m2 : Msg :: && m2 in ss.msgSent
+                                                 && ValidQC(m2.justify)
+                                                 && m2.justify.cType == MT_PreCommit
+                                                 && m2.justify.block == m.justify.block
+                                                 && m2.justify.viewNum == m.justify.viewNum
+                            )
+    // {
+
+    // }
+
+
+    lemma LemmaExistValidPrepareQCForEveryValidCommitQC(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                             && m.justify.cType == MT_Commit
+                          ::
+                             && (exists m2 : Msg :: && m2 in ss.msgSent
+                                                    && m2.mType == MT_Prepare
+                                                    && ValidQC(m2.justify)
+                                                    && m2.justify.cType == MT_Prepare
+                                                    && m2.justify.block == m.justify.block
+                                                    && m2.justify.viewNum == m.justify.viewNum)
+    {
+        LemmaExistValidPrecommitQCForEveryValidCommitQC(ss);
+        LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss);
+    }
+
 }

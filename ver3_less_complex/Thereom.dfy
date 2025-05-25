@@ -107,7 +107,7 @@ module M_Thereom {
      *
      */
 
-    lemma Thm_Two_Conflict_Block_Cant_Be_Committed_By_Honest_Replica(ss : SystemState)
+    lemma Thm_Two_Conflict_Block_Cant_Be_Both_Committed_By_Honest_Replica(ss : SystemState)
     requires ValidSystemState(ss)
     ensures !(exists r, m1 : Msg, m2 : Msg :: && IsHonest(ss, r)
                                               && m1 in ss.nodeStates[r].msgRecieved
@@ -116,6 +116,8 @@ module M_Thereom {
                                               && m2.mType == MT_Decide
                                               && ValidQC(m1.justify)
                                               && ValidQC(m2.justify)
+                                              && m1.justify.cType == MT_Commit
+                                              && m1.justify.cType == m2.justify.cType
                                               && m1.justify.block.Block?
                                               && m2.justify.block.Block?
                                               && !NoConflict(m1.justify.block, m2.justify.block)
@@ -129,6 +131,8 @@ module M_Thereom {
                                               && m2.mType == MT_Decide
                                               && ValidQC(m1.justify)
                                               && ValidQC(m2.justify)
+                                              && m1.justify.cType == MT_Commit
+                                              && m1.justify.cType == m2.justify.cType
                                               && m1.justify.block.Block?
                                               && m2.justify.block.Block?
                                               && !NoConflict(m1.justify.block, m2.justify.block)
@@ -141,13 +145,53 @@ module M_Thereom {
                             && m2.mType == MT_Decide
                             && ValidQC(m1.justify)
                             && ValidQC(m2.justify)
+                            && m1.justify.cType == MT_Commit
+                            && m1.justify.cType == m2.justify.cType
                             && m1.justify.block.Block?
                             && m2.justify.block.Block?
                             && !NoConflict(m1.justify.block, m2.justify.block);
-
-            assert m1.justify.viewNum != m2.justify.viewNum by {
-                LemmaViewDiffOnConflictCertificate(ss);
+            
+            var qc1, qc2 := m1.justify, m2.justify;
+            var w, b := qc1.block, qc2.block;
+            var v1, v2 := qc1.viewNum, qc2.viewNum;
+            calc {
+                true;
+                ==> {LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
+                ss.nodeStates[r].msgRecieved <= ss.msgSent;
+                ==>
+                m1 in ss.msgSent && m2 in ss.msgSent;
+                ==> {LemmaViewDiffOnConflictCertificate(ss);}
+                v1 != v2;
             }
+            assert v1 != v2;
+
+            assume v1 < v2;
+
+            var allPrepareQCMsg := getValidPrepareQCMsgs(ss);
+            assert allPrepareQCMsg != {} by {
+                LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                assert ss.nodeStates[r].msgRecieved <= ss.msgSent;
+                assert m2 in ss.msgSent;
+                assert ValidQC(m2.justify);
+                assert m2.justify.cType == MT_Commit;
+                LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+                assert exists m : Msg :: && m in ss.msgSent
+                                        && m.mType == MT_Prepare
+                                        && ValidQC(m.justify)
+                                        && m.justify.cType == MT_Prepare
+                                        && m in allPrepareQCMsg;
+    
+            }
+
+
+            var matchingPrepareQCMsg := getMatchingPrepareQCMsgs(allPrepareQCMsg, qc1, qc2);
+            // var qcsMsg := argmin(allMatchingPrepareQCMsg, (m : Msg) => m.justify.viewNum);
+
+            assert matchingPrepareQCMsg != {} by {
+                LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+                assert !NoConflict(qc1.block, qc2.block);
+            }
+
 
             // By asserting false at the end, we could check whether the `IF` statement succeed or not
             // Asserting false should always raise en error, if not, then this assertion never been called, which means the IF statement is false.
@@ -155,12 +199,44 @@ module M_Thereom {
         }
     }
 
-    lemma Lemma_Test_Contradiction()
-    ensures 1 + 1 == 2
+    predicate PredConflictPrepareQCWithHigherViewNum(prepareQC : Cert, commitQC1 : Cert, commitQC2 : Cert)
+    requires ValidQC(prepareQC)
+    requires ValidQC(commitQC1)
+    requires ValidQC(commitQC2)
+    requires commitQC1.viewNum < commitQC2.viewNum
+    requires !NoConflict(commitQC1.block, commitQC2.block)
     {
-        if !(1+1==2) {
+        && commitQC1.viewNum < prepareQC.viewNum <= commitQC2.viewNum
+        && !NoConflict(commitQC1.block, prepareQC.block)
+    }
+
+    lemma Lemma_Test_Contradiction()
+    ensures !(1 + 1 == 2)
+    {
+        if (1+1==2) {
             assert false;
         }
-        assert false;
+        // assert false;
+    }
+
+    function getValidPrepareQCMsgs(ss : SystemState) : set<Msg>
+    {
+        set m | && m in ss.msgSent
+                && m.mType == MT_Prepare
+                && ValidQC(m.justify)
+                && m.justify.cType == MT_Prepare
+                // && PredConflictPrepareQCWithHigherViewNum(m.justify, qc1, qc2)
+    }
+
+    function getMatchingPrepareQCMsgs(msgsWithPrepareQC : set<Msg>, commitQC1 : Cert, commitQC2: Cert) : set<Msg>
+    requires forall m | && m in msgsWithPrepareQC
+                     :: && ValidQC(m.justify)
+    requires ValidQC(commitQC1)
+    requires ValidQC(commitQC2)
+    requires commitQC1.viewNum < commitQC2.viewNum
+    {
+        set m | && m in msgsWithPrepareQC
+                && PredConflictPrepareQCWithHigherViewNum(m.justify, commitQC1, commitQC2)
+
     }
 }

@@ -123,7 +123,7 @@ module M_Replica {
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     {
-        var newLeader := leader(r.viewNum+1);
+        // var newLeader := leader(r.viewNum+1);
         // var newViewMsg := MsgWithRecipient(Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone), newLeader);
         var newViewMsg := Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
         && r' == r.(
@@ -375,12 +375,12 @@ module M_Replica {
         // then it should always update its local blockchain accordingly.
         && (|| s.bc == [M_SpecTypes.Genesis_Block]
             || (exists m | && m in s.msgRecieved
-                      && m.mType.MT_Decide?
-                      && m.justify.Cert?
-                      && ValidQC(m.justify)
-                      && m.justify.block.Block?
-                    ::
-                      s.bc <= getAncestors(m.justify.block)
+                           && m.mType.MT_Decide?
+                           && m.justify.Cert?
+                           && ValidQC(m.justify)
+                           && m.justify.block.Block?
+                        ::
+                           s.bc <= getAncestors(m.justify.block)
             )
         )
     }
