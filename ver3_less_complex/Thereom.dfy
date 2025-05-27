@@ -291,34 +291,34 @@ module M_Thereom {
                                                && voteMsgByReplica.partialSig.block == m1.block
                                                && m1.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
 
-            var pre_prepareMsg : Msg :| && pre_prepareMsg in ss.nodeStates[replica].msgRecieved
-                                               && pre_prepareMsg.mType == MT_Prepare
-                                               && ValidQC(pre_prepareMsg.justify)
-                                               && pre_prepareMsg.justify.cType == MT_Prepare
-                                               && pre_prepareMsg.justify.viewNum > qc1.viewNum
-                                               && pre_prepareMsg.block.Block?
-                                               && extension(pre_prepareMsg.block, pre_prepareMsg.justify.block)
-                                               && safeNode(pre_prepareMsg.block, pre_prepareMsg.justify, qc1)
-                                               && voteMsgByReplica.partialSig.block == pre_prepareMsg.block
-                                               && pre_prepareMsg.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
+            var proposal_qcs : Msg :| && proposal_qcs in ss.nodeStates[replica].msgRecieved
+                                               && proposal_qcs.mType == MT_Prepare
+                                               && ValidQC(proposal_qcs.justify)
+                                               && proposal_qcs.justify.cType == MT_Prepare
+                                               && proposal_qcs.justify.viewNum > qc1.viewNum
+                                               && proposal_qcs.block.Block?
+                                               && extension(proposal_qcs.block, proposal_qcs.justify.block)
+                                               && safeNode(proposal_qcs.block, proposal_qcs.justify, qc1)
+                                               && voteMsgByReplica.partialSig.block == proposal_qcs.block
+                                               && proposal_qcs.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
             calc {
                 !NoConflict(qcsMsg.justify.block, qc1.block);
                 ==>
-                !NoConflict(pre_prepareMsg.block, qc1.block);
+                !NoConflict(proposal_qcs.block, qc1.block);
                 ==>
-                !extension(pre_prepareMsg.block, qc1.block);
+                !extension(proposal_qcs.block, qc1.block);
             }
 
-            assert pre_prepareMsg.justify.viewNum <= qc2.viewNum by {
-                assert pre_prepareMsg.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
+            assert proposal_qcs.justify.viewNum <= qc2.viewNum by {
+                assert proposal_qcs.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
                 assert voteMsgByReplica.partialSig.viewNum == qcsMsg.justify.viewNum;
                 assert qcsMsg.justify.viewNum <= qc2.viewNum;
             }
-            assert qc1.viewNum < pre_prepareMsg.justify.viewNum <= qc2.viewNum;
+            assert qc1.viewNum < proposal_qcs.justify.viewNum <= qc2.viewNum;
 
 
-            assert extension(pre_prepareMsg.block, pre_prepareMsg.justify.block);
-            assert !NoConflict(pre_prepareMsg.block, qc1.block);
+            assert extension(proposal_qcs.block, proposal_qcs.justify.block);
+            assert !NoConflict(proposal_qcs.block, qc1.block);
             
 
             /*  
@@ -327,13 +327,45 @@ module M_Thereom {
                             (2) qc1.block conflicts with qc2.block;
                             (3) qc1.viewNum < qc2.viewNum
             *   Example: 
-            *   qc1.block := G -> B1 -> B2      qc1.viewNum := 5    (replica's lockedQC)
+            *   ---------------------------------
+            *  |   qc1.block := G -> B1 -> B2    |
+            *  |   qc1.viewNum := 5              |
+            *  |   (replica's lockedQC)          |
+            *   ---------------------------------
             *
-            *   qc2.block := G -> B1 -> B3 -> B4        qc2.viewNum := 10
+            *   ----------------------------------------
+            *  |    qc2.block := G -> B1 -> B3 -> B4    |
+            *  |    qc2.viewNum := 10                   |
+            *   ----------------------------------------
             *   
-            *   qcs.block := G -> B1 -> B3      5 < qcs.viewNum <= 10
+            *   ---------------------------------
+            *  |    qcs.block := G -> B1 -> B3   |
+            *  |    5 < qcs.viewNum <= 10        |
+            *  |    (type = PREPARE)             |
+            *   ---------------------------------
             *   
+            *   Proposal of qcs.block : proposal_qcs
+            *   -----------------------------------------
+            *  |    proposal_qcs.block := G -> B1 -> B3  |
+            *  |    proposal_qcs.viewNum == qcs.viewNum  |
+            *  |    proposal_qcs.justify == ?            |
+            *   -----------------------------------------
             *   
+            *   To successfully vote proposal_qcs,
+            *   here we need proposal_qcs satisfying all the following constraints
+            *   (1) proposal_qcs.block extends proposal_qcs.justify.block
+            *   (2) || proposal_qcs.block extends qc1.block (locedQC)   ==> FAIL
+            *       || proposal_qcs.justify.viewNum > qc1.block.viewNum
+            *   
+            *   E.g. 
+            *   ------------------------------------------------------
+            *  |    proposal_qcs.block := G -> B1 -> B3               |
+            *  |    proposal_qcs.viewNum == qcs.viewNum               |
+            *  |    proposal_qcs.justify == G -> B1                   |
+            *  |    proposal_qcs.justify.viewNum > qc1.block.viewNum  | 
+            *   ------------------------------------------------------
+            *   
+            *   Need to prove such an justify never exist
             *
             */
             
