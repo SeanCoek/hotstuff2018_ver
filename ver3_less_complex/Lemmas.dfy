@@ -31,9 +31,9 @@ module M_Lemma {
                                                                              && m.partialSig == s
                                                             ) 
                                 )
-    {
+    // {
 
-    }
+    // }
 
     lemma LemmaHonestNodeOnlyVoteOnceInOneView(ss : SystemState)
     requires ValidSystemState(ss)
@@ -251,4 +251,41 @@ module M_Lemma {
         LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss);
     }
 
+
+    lemma LemmaReplicaVotePrepareOnlyIfItRecievedASafetyPrepareQC(ss : SystemState, r : Address, lockedQC : Cert)
+    requires ValidSystemState(ss)
+    requires ValidQC(lockedQC)
+    requires IsHonest(ss, r)
+    ensures forall m : Msg | && m in ss.nodeStates[r].msgRecieved
+                          :: 
+                            // && m.mType == MT_Prepare
+                            && m.partialSig.Signature?
+                            && m.partialSig.signer == r
+                            && m.partialSig.mType == MT_Prepare
+                            ==>
+                            (exists m1 : Msg :: && m1 in ss.nodeStates[r].msgRecieved
+                                               && m1.mType == MT_Prepare
+                                               && ValidQC(m1.justify)
+                                               && m1.justify.cType == MT_Prepare
+                                               && m1.justify.viewNum > lockedQC.viewNum
+                                               && m1.block.Block?
+                                               && extension(m1.block, m1.justify.block)
+                                               && safeNode(m1.block, m1.justify, lockedQC)
+                                               && m.partialSig.block == m1.block
+                                               && m1.justify.viewNum < m.partialSig.viewNum
+                            )
+    
+    lemma LemmaVoteMsgInValidQCAlsoRecievedByVoter(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                          ::
+                            //  && var signers := getMajoritySignerInValidQC(m.justify)
+                             && var signatures := getVotesInValidQC(m.justify);
+                             && forall s | s in signatures
+                                        :: 
+                                          && (exists voteMsg : Msg :: 
+                                                                     && voteMsg in ss.nodeStates[s.signer].msgRecieved
+                                                                     && voteMsg.partialSig == s)
+    // {}
 }

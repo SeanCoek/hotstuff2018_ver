@@ -5,6 +5,7 @@ include "Invariants.dfy"
 include "Replica.dfy"
 include "Auxilarily.dfy"
 include "Lemmas.dfy"
+include "common/sets.dfy"
 
 module M_Thereom {
     import opened M_SpecTypes
@@ -14,6 +15,7 @@ module M_Thereom {
     import opened M_Replica
     import opened M_AuxilarilyFunc
     import opened M_Lemma
+    import opened M_Set
 
     predicate consistentBlockchains(bc1 : Blockchain, bc2 : Blockchain)
     {
@@ -154,6 +156,8 @@ module M_Thereom {
             var qc1, qc2 := m1.justify, m2.justify;
             var w, b := qc1.block, qc2.block;
             var v1, v2 := qc1.viewNum, qc2.viewNum;
+
+            // Proof: qc1.viewNum != qc2.viewNum
             calc {
                 true;
                 ==> {LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
@@ -163,11 +167,16 @@ module M_Thereom {
                 ==> {LemmaViewDiffOnConflictCertificate(ss);}
                 v1 != v2;
             }
-            assert v1 != v2;
 
+            // W.l.o.g. Assume qc1.viewNum is greater than qc2.viewNum
             assume v1 < v2;
 
+            // Get all messages sent in the system with a valid prepare certificate
             var allPrepareQCMsg := getValidPrepareQCMsgs(ss);
+
+            // Proof: Such messages must exist, cause every valid commit-certificate could be formed 
+            // only if there exists a corresponding prepare-certificate. And here we have two valid 
+            // commit-certifiacte (qc1, qc2).
             assert allPrepareQCMsg != {} by {
                 LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                 assert ss.nodeStates[r].msgRecieved <= ss.msgSent;
@@ -179,19 +188,155 @@ module M_Thereom {
                                         && m.mType == MT_Prepare
                                         && ValidQC(m.justify)
                                         && m.justify.cType == MT_Prepare
-                                        && m in allPrepareQCMsg;
+                                        && m in allPrepareQCMsg;    // Q.E.D.
+                // assert exists m : Msg :: && m in ss.msgSent
+                //                          && m.mType == MT_Prepare
+                //                          && ValidQC(m.justify)
+                //                          && m.justify.cType == MT_Prepare
+                //                          && m in allPrepareQCMsg
+                //                          && m.justify.block == m2.justify.block
+                //                          && m.justify.viewNum == m2.justify.viewNum;
     
             }
 
-
+            // Get all prepare message matching the following predicate : 
+            // (qc1.viewNum < prepareQC.viewNum ≤ qc2.viewNum) ∧ (prepareQC.block conflicts with qc1.block)
             var matchingPrepareQCMsg := getMatchingPrepareQCMsgs(allPrepareQCMsg, qc1, qc2);
-            // var qcsMsg := argmin(allMatchingPrepareQCMsg, (m : Msg) => m.justify.viewNum);
 
+            // Proof: Such matching messages must exist, cause there exists at least one message satisfying the predicate.
+            // e.g. the corresponding prepare message for commit-certificate `qc2`
             assert matchingPrepareQCMsg != {} by {
-                LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
-                assert !NoConflict(qc1.block, qc2.block);
+            LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+            assert ss.nodeStates[r].msgRecieved <= ss.msgSent;
+            assert m2 in ss.msgSent;
+            assert ValidQC(m2.justify);
+            assert m2.justify.cType == MT_Commit;
+            LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+            // assert !NoConflict(qc1.block, qc2.block);
+            // assert allPrepareQCMsg != {};
+            // assert forall m | && m in allPrepareQCMsg
+            //                 :: && ValidQC(m.justify);
+            // assert ValidQC(qc1);
+            // assert ValidQC(qc2);
+            // assert qc1.viewNum < qc2.viewNum;
+            // var matchM :| && matchM in allPrepareQCMsg
+            //                          && PredConflictPrepareQCWithHigherViewNum(matchM.justify, qc1, qc2);
+            // assert matchM in matchingPrepareQCMsg;
+            // assert matchingPrepareQCMsg != {};
+            assert exists m : Msg :: && m in allPrepareQCMsg
+                                     && PredConflictPrepareQCWithHigherViewNum(m.justify, qc1, qc2)
+                                     && m in matchingPrepareQCMsg; // Q.E.D.
             }
 
+            // Get the message with minimal view number
+            var qcsMsg := argminView(matchingPrepareQCMsg);
+            assert qc1.viewNum < qcsMsg.justify.viewNum <= qc2.viewNum;
+            assert !NoConflict(qcsMsg.justify.block, qc1.block);
+            // assert !(exists m : Msg :: m in )
+
+            var signers1 := getMajoritySignerInValidQC(qc1);
+            var signers2 := getMajoritySignerInValidQC(qcsMsg.justify);
+            assert signers1 * signers2 * Honest_Nodes != {} by {
+                LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
+            }
+            var replica :| replica in signers1 * signers2 * Honest_Nodes;
+
+            // Proof: the prepare-certificate in qcsMsg could never be created in a valid system
+            // i.e. The existence of qcsMsg will violated the precondition `ValidSystemState(ss)`
+            LemmaVoteMsgInValidQCAlsoRecievedByVoter(ss);
+            assert exists voteMsg : Msg :: 
+                                          && voteMsg in ss.nodeStates[replica].msgRecieved
+                                          && voteMsg.partialSig.Signature?
+                                          && voteMsg.partialSig.signer == replica
+                                          && voteMsg.partialSig.mType == qcsMsg.justify.cType
+                                          && voteMsg.partialSig.viewNum == qcsMsg.justify.viewNum
+                                          && voteMsg.partialSig.block == qcsMsg.justify.block
+                                          ;
+            
+            var voteMsgByReplica : Msg :| 
+                                          && voteMsgByReplica in ss.nodeStates[replica].msgRecieved
+                                          && voteMsgByReplica.partialSig.Signature?
+                                          && voteMsgByReplica.partialSig.signer == replica
+                                          && voteMsgByReplica.partialSig.mType == qcsMsg.justify.cType
+                                          && voteMsgByReplica.partialSig.viewNum == qcsMsg.justify.viewNum
+                                          && voteMsgByReplica.partialSig.block == qcsMsg.justify.block
+                                          ;
+            // assert 
+            //         && voteMsgByReplica.partialSig.Signature?
+            //         && voteMsgByReplica.partialSig.signer == replica
+            //         && voteMsgByReplica.partialSig.mType == MT_Prepare;
+
+            // assert replica in Honest_Nodes;
+            
+            
+            assert ss.nodeStates.Keys - ss.adversary.byz_nodes == Honest_Nodes by {
+                // assert ss.nodeStates.Keys == All_Nodes;
+                // assert ss.adversary.byz_nodes == Adversary_Nodes;
+                // assert Honest_Nodes * ss.adversary.byz_nodes == {};
+                // assert ss.nodeStates.Keys == Honest_Nodes + ss.adversary.byz_nodes;
+                // assert |ss.nodeStates.Keys| == |Honest_Nodes| + |ss.adversary.byz_nodes|;
+                LemmaAdditiveOnSeparateSet(ss.nodeStates.Keys, ss.adversary.byz_nodes, Honest_Nodes);
+            }
+            assert IsHonest(ss, replica);
+
+            LemmaReplicaVotePrepareOnlyIfItRecievedASafetyPrepareQC(ss, replica, qc1);
+            assert exists m1 : Msg :: && m1 in ss.nodeStates[replica].msgRecieved
+                                               && m1.mType == MT_Prepare
+                                               && ValidQC(m1.justify)
+                                               && m1.justify.cType == MT_Prepare
+                                               && m1.justify.viewNum > qc1.viewNum
+                                               && m1.block.Block?
+                                               && extension(m1.block, m1.justify.block)
+                                               && safeNode(m1.block, m1.justify, qc1)
+                                               && voteMsgByReplica.partialSig.block == m1.block
+                                               && m1.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
+
+            var pre_prepareMsg : Msg :| && pre_prepareMsg in ss.nodeStates[replica].msgRecieved
+                                               && pre_prepareMsg.mType == MT_Prepare
+                                               && ValidQC(pre_prepareMsg.justify)
+                                               && pre_prepareMsg.justify.cType == MT_Prepare
+                                               && pre_prepareMsg.justify.viewNum > qc1.viewNum
+                                               && pre_prepareMsg.block.Block?
+                                               && extension(pre_prepareMsg.block, pre_prepareMsg.justify.block)
+                                               && safeNode(pre_prepareMsg.block, pre_prepareMsg.justify, qc1)
+                                               && voteMsgByReplica.partialSig.block == pre_prepareMsg.block
+                                               && pre_prepareMsg.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
+            calc {
+                !NoConflict(qcsMsg.justify.block, qc1.block);
+                ==>
+                !NoConflict(pre_prepareMsg.block, qc1.block);
+                ==>
+                !extension(pre_prepareMsg.block, qc1.block);
+            }
+
+            assert pre_prepareMsg.justify.viewNum <= qc2.viewNum by {
+                assert pre_prepareMsg.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
+                assert voteMsgByReplica.partialSig.viewNum == qcsMsg.justify.viewNum;
+                assert qcsMsg.justify.viewNum <= qc2.viewNum;
+            }
+            assert qc1.viewNum < pre_prepareMsg.justify.viewNum <= qc2.viewNum;
+
+
+            assert extension(pre_prepareMsg.block, pre_prepareMsg.justify.block);
+            assert !NoConflict(pre_prepareMsg.block, qc1.block);
+            
+
+            /*  
+            *   Assumption: 
+                            (1) qc1 and qc2 are valid COMMIT-certificate;
+                            (2) qc1.block conflicts with qc2.block;
+                            (3) qc1.viewNum < qc2.viewNum
+            *   Example: 
+            *   qc1.block := G -> B1 -> B2      qc1.viewNum := 5    (replica's lockedQC)
+            *
+            *   qc2.block := G -> B1 -> B3 -> B4        qc2.viewNum := 10
+            *   
+            *   qcs.block := G -> B1 -> B3      5 < qcs.viewNum <= 10
+            *   
+            *   
+            *
+            */
+            
 
             // By asserting false at the end, we could check whether the `IF` statement succeed or not
             // Asserting false should always raise en error, if not, then this assertion never been called, which means the IF statement is false.
@@ -210,15 +355,6 @@ module M_Thereom {
         && !NoConflict(commitQC1.block, prepareQC.block)
     }
 
-    lemma Lemma_Test_Contradiction()
-    ensures !(1 + 1 == 2)
-    {
-        if (1+1==2) {
-            assert false;
-        }
-        // assert false;
-    }
-
     function getValidPrepareQCMsgs(ss : SystemState) : set<Msg>
     {
         set m | && m in ss.msgSent
@@ -231,9 +367,11 @@ module M_Thereom {
     function getMatchingPrepareQCMsgs(msgsWithPrepareQC : set<Msg>, commitQC1 : Cert, commitQC2: Cert) : set<Msg>
     requires forall m | && m in msgsWithPrepareQC
                      :: && ValidQC(m.justify)
+                        && m.justify.cType == MT_Prepare
     requires ValidQC(commitQC1)
     requires ValidQC(commitQC2)
     requires commitQC1.viewNum < commitQC2.viewNum
+    requires !NoConflict(commitQC1.block, commitQC2.block)
     {
         set m | && m in msgsWithPrepareQC
                 && PredConflictPrepareQCWithHigherViewNum(m.justify, commitQC1, commitQC2)

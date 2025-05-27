@@ -264,6 +264,16 @@ module M_AuxilarilyFunc {
         min
     }
 
+    function argminView(s: set<Msg>) : (ret : Msg)
+    requires s != {}
+    requires forall x | x in s :: x.justify.Cert?
+    ensures forall x :: x in s ==> ret.justify.viewNum <= x.justify.viewNum
+    ensures ret in s
+    {
+        var min :| min in s && forall x :: x in s ==> min.justify.viewNum <= x.justify.viewNum;
+        min
+    }
+
     function argmax<T>(s: set<T>, f: T -> int) : (ret : T)
     requires s != {}
     ensures forall x :: x in s ==> f(ret) >= f(x)

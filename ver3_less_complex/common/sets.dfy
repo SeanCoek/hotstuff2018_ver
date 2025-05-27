@@ -42,4 +42,40 @@ module M_Set {
             // OBSERVE
         }
     }
+
+    lemma LemmaAdditiveOnSeparateSet<T> (s: set<T>, x: set<T>, y: set<T>)
+    requires x * y == {}
+    requires s == x + y
+    ensures s - x == y
+    {
+        if (x != {} && y != {})
+        {
+            forall e | e in s - x
+            ensures e in y {
+
+            }
+            assert |s-x| == |y|;
+            LemmaSetEquivlent(s-x, y);
+            assert s - x == y;
+        }
+        else
+        {
+            //OBSERVE
+        }
+    }
+
+    lemma LemmaSetEquivlent<T> (x: set<T>, y: set<T>)
+    requires forall e | e in x :: e in y
+    requires |x| == |y|
+    ensures x == y
+    {
+        if (x == {})
+        {
+            //OBSERVE
+        }
+        else {
+            var e :| e in x;
+            LemmaSetEquivlent(x-{e}, y-{e});
+        }
+    }
 }
