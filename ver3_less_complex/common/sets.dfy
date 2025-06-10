@@ -2,6 +2,8 @@
 
 module M_Set {
 
+    import opened Std.Collections.Set
+
     method SetToSeq<T>(s: set<T>) returns (sq: seq<T>)
     ensures |sq| == |s| // The length of the sequence equals the size of the set
     ensures forall i :: 0 <= i < |sq| ==> sq[i] in s // All elements in the sequence are from the set
@@ -77,5 +79,12 @@ module M_Set {
             var e :| e in x;
             LemmaSetEquivlent(x-{e}, y-{e});
         }
+    }
+
+    lemma LemmaTest<T> (x: set<T>, y: set<T>)
+    requires x < y
+    ensures |x| < |y|
+    {
+        Set.LemmaSubsetSize(x, y);
     }
 }

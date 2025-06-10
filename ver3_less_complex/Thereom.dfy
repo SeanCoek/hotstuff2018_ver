@@ -362,7 +362,7 @@ module M_Thereom {
             *  |    proposal_qcs.block := G -> B1 -> B3               |
             *  |    proposal_qcs.viewNum == qcs.viewNum               |
             *  |    proposal_qcs.justify == G -> B1                   |
-            *  |    proposal_qcs.justify.viewNum > qc1.block.viewNum  | 
+            *  |    proposal_qcs.justify.viewNum > qc1.viewNum        | 
             *   ------------------------------------------------------
             *   
             *   Need to prove such an justify never exist
