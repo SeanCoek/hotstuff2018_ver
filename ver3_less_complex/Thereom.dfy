@@ -66,8 +66,114 @@ module M_Thereom {
         ensures consistentBlockchains(ss.nodeStates[r1].bc, ss.nodeStates[r2].bc)
         {
             var s1, s2 := ss.nodeStates[r1], ss.nodeStates[r2];
-            if ReplicaInit(s1, s1.id) && ReplicaInit(s2, s2.id) {
-                assert s1.bc <= s2.bc || s2.bc <= s1.bc;
+            // Here we should prove: s1.bc <= s2.bc || s2.bc <= s1.bc
+            assert ValidReplicaState(s1) && ValidReplicaState(s2);
+            if s1.bc != [M_SpecTypes.Genesis_Block] && s2.bc != [M_SpecTypes.Genesis_Block] {
+                assert exists m1 | && m1 in s1.msgRecieved
+                                    && m1.mType.MT_Decide?
+                                    && m1.justify.Cert?
+                                    && m1.justify.cType == MT_Commit
+                                    && ValidQC(m1.justify)
+                                    && m1.justify.block.Block?
+                                ::
+                                    s1.bc <= getAncestors(m1.justify.block);
+                var m1 :| && m1 in s1.msgRecieved
+                                    && m1.mType.MT_Decide?
+                                    && m1.justify.Cert?
+                                    && m1.justify.cType == MT_Commit
+                                    && ValidQC(m1.justify)
+                                    && m1.justify.block.Block?
+                                    && s1.bc <= getAncestors(m1.justify.block);
+
+                assert exists m2 | && m2 in s2.msgRecieved
+                                   && m2.mType.MT_Decide?
+                                   && m2.justify.Cert?
+                                   && m2.justify.cType.MT_Commit?
+                                   && ValidQC(m2.justify)
+                                   && m2.justify.block.Block?
+                                ::
+                                   s2.bc <= getAncestors(m2.justify.block);
+                var m2 :| && m2 in s2.msgRecieved
+                                   && m2.mType.MT_Decide?
+                                   && m2.justify.Cert?
+                                   && m2.justify.cType.MT_Commit?
+                                   && ValidQC(m2.justify)
+                                   && m2.justify.block.Block?
+                                   && s2.bc <= getAncestors(m2.justify.block);
+                // Prove : m1.justify.block does conflict with m2.justify.block
+                // assert m1 in ss.msgSent;
+                assert m1 in ss.msgSent by {
+                    // assert m1 in s1.msgRecieved;
+                    assert s1.msgRecieved <= ss.msgSent by {
+                        LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                    }
+                }
+                assert m2 in ss.msgSent by {
+                    assert s2.msgRecieved <= ss.msgSent by {
+                        LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                    }
+                }
+
+                assert exists m1_p : Msg :: && m1_p in ss.msgSent
+                                            && m1_p.mType == MT_Prepare
+                                            && ValidQC(m1_p.justify)
+                                            && m1_p.justify.cType == MT_Prepare
+                                            && m1_p.justify.block == m1.justify.block
+                                            && m1_p.justify.viewNum == m1.justify.viewNum by {
+                    LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+                }
+
+                assert exists m2_p : Msg :: && m2_p in ss.msgSent
+                                            && m2_p.mType == MT_Prepare
+                                            && ValidQC(m2_p.justify)
+                                            && m2_p.justify.cType == MT_Prepare
+                                            && m2_p.justify.block == m2.justify.block
+                                            && m2_p.justify.viewNum == m2.justify.viewNum by {
+                    LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+                }
+
+                var m1_p :| && m1_p in ss.msgSent
+                                            && m1_p.mType == MT_Prepare
+                                            && ValidQC(m1_p.justify)
+                                            && m1_p.justify.cType == MT_Prepare
+                                            && m1_p.justify.block == m1.justify.block
+                                            && m1_p.justify.viewNum == m1.justify.viewNum;
+                var m2_p :| && m2_p in ss.msgSent
+                                            && m2_p.mType == MT_Prepare
+                                            && ValidQC(m2_p.justify)
+                                            && m2_p.justify.cType == MT_Prepare
+                                            && m2_p.justify.block == m2.justify.block
+                                            && m2_p.justify.viewNum == m2.justify.viewNum;
+                
+                if m1_p.justify.viewNum <= m2_p.justify.viewNum {
+                    assert extension(m2_p.justify.block, m1_p.justify.block) by {
+                        LemmaPrepareQCExtension(ss);
+                    }
+                } else {
+                    assert extension(m1_p.justify.block, m2_p.justify.block) by {
+                        LemmaPrepareQCExtension(ss);
+                    }
+                }
+
+                assert || extension(m1.justify.block, m2.justify.block)
+                       || extension(m2.justify.block, m1.justify.block);
+                
+                var m1_acstr, m2_acstr := getAncestors(m1.justify.block), getAncestors(m2.justify.block); 
+
+                assert s2.bc <= m2_acstr;
+                assert s1.bc <= m1_acstr;
+
+                // assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr by {
+                //     if extension(m1.justify.block, m2.justify.block) {
+                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m1.justify.block, m2.justify.block);
+                //     }
+                //     else {
+                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m2.justify.block, m1.justify.block);
+                //     }
+                // }
+                assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr;
+                assert s2.bc <= s1.bc || s1.bc <= s2.bc;
+                
             }
         }
     }
@@ -320,6 +426,63 @@ module M_Thereom {
             assert extension(proposal_qcs.block, proposal_qcs.justify.block);
             assert !NoConflict(proposal_qcs.block, qc1.block);
             
+            assert exists m1_p : Msg :: && m1_p in ss.msgSent
+                                        && m1_p.mType == MT_Prepare
+                                        && ValidQC(m1_p.justify)
+                                        && m1_p.justify.cType == MT_Prepare
+                                        && m1_p.justify.block == qc1.block
+                                        && m1_p.justify.viewNum == qc1.viewNum by {
+                LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+            }
+
+            assert exists m2_p : Msg :: && m2_p in ss.msgSent
+                                        && m2_p.mType == MT_Prepare
+                                        && ValidQC(m2_p.justify)
+                                        && m2_p.justify.cType == MT_Prepare
+                                        && m2_p.justify.block == qc2.block
+                                        && m2_p.justify.viewNum == qc2.viewNum by {
+                LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+            }
+
+            var m1_p :| && m1_p in ss.msgSent
+                                        && m1_p.mType == MT_Prepare
+                                        && ValidQC(m1_p.justify)
+                                        && m1_p.justify.cType == MT_Prepare
+                                        && m1_p.justify.block == qc1.block
+                                        && m1_p.justify.viewNum == qc1.viewNum;
+            var m2_p :| && m2_p in ss.msgSent
+                                        && m2_p.mType == MT_Prepare
+                                        && ValidQC(m2_p.justify)
+                                        && m2_p.justify.cType == MT_Prepare
+                                        && m2_p.justify.block == qc2.block
+                                        && m2_p.justify.viewNum == qc2.viewNum;
+            if m1_p.justify.viewNum <= m2_p.justify.viewNum {
+                    assert extension(m2_p.justify.block, m1_p.justify.block) by {
+                        LemmaPrepareQCExtension(ss);
+                    }
+                } else {
+                    assert extension(m1_p.justify.block, m2_p.justify.block) by {
+                        LemmaPrepareQCExtension(ss);
+                    }
+                }
+
+                assert || extension(qc1.block, qc2.block)
+                       || extension(qc2.block, qc1.block);
+                
+                // var m1_acstr, m2_acstr := getAncestors(m1.justify.block), getAncestors(m2.justify.block); 
+
+                // assert s2.bc <= m2_acstr;
+                // assert s1.bc <= m1_acstr;
+
+                // assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr by {
+                //     if extension(m1.justify.block, m2.justify.block) {
+                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m1.justify.block, m2.justify.block);
+                //     }
+                //     else {
+                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m2.justify.block, m1.justify.block);
+                //     }
+                // }
+                // assert s2.bc <= s1.bc || s1.bc <= s2.bc;
 
             /*  
             *   Assumption: 

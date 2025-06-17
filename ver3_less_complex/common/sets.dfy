@@ -27,22 +27,24 @@ module M_Set {
     requires x < y
     ensures |x| < |y|
     {
-        if (x != {}) {
-            var e :| e in x;
-            LemmaProperSubsetCardinality(x-{e}, y-{e});
-        }
+        // if (x != {}) {
+        //     var e :| e in x;
+        //     LemmaProperSubsetCardinality(x-{e}, y-{e});
+        // }
+        Set.LemmaSubsetSize(x, y);
     }
 
     lemma LemmaSubsetCardinality<T> (x: set<T>, y:set<T>)
     ensures x < y ==> |x| < |y| // Strangely Dafny can't prove this. HAVE TO prove it by our own
     ensures x <= y ==> |x| <= |y| 
     {
-        if (x < y) {
-            LemmaProperSubsetCardinality(x, y);
-        }
-        if (x == y) {
-            // OBSERVE
-        }
+        // if (x < y) {
+        //     LemmaProperSubsetCardinality(x, y);
+        // }
+        // if (x == y) {
+        //     // OBSERVE
+        // }
+        Set.LemmaSubsetSize(x, y);
     }
 
     lemma LemmaAdditiveOnSeparateSet<T> (s: set<T>, x: set<T>, y: set<T>)
@@ -57,7 +59,8 @@ module M_Set {
 
             }
             assert |s-x| == |y|;
-            LemmaSetEquivlent(s-x, y);
+            // LemmaSetEquivlent(s-x, y);
+            Set.LemmaSubsetEquality(s-x, y);
             assert s - x == y;
         }
         else
@@ -71,14 +74,15 @@ module M_Set {
     requires |x| == |y|
     ensures x == y
     {
-        if (x == {})
-        {
-            //OBSERVE
-        }
-        else {
-            var e :| e in x;
-            LemmaSetEquivlent(x-{e}, y-{e});
-        }
+        // if (x == {})
+        // {
+        //     //OBSERVE
+        // }
+        // else {
+        //     var e :| e in x;
+        //     LemmaSetEquivlent(x-{e}, y-{e});
+        // }
+        Set.LemmaSubsetEquality(x, y);
     }
 
     lemma LemmaTest<T> (x: set<T>, y: set<T>)

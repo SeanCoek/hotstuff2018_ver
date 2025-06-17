@@ -252,6 +252,8 @@ module M_Lemma {
     }
 
 
+
+
     lemma LemmaReplicaVotePrepareOnlyIfItRecievedASafetyPrepareQC(ss : SystemState, r : Address, lockedQC : Cert)
     requires ValidSystemState(ss)
     requires ValidQC(lockedQC)
@@ -288,4 +290,38 @@ module M_Lemma {
                                                                      && voteMsg in ss.nodeStates[s.signer].msgRecieved
                                                                      && voteMsg.partialSig == s)
     // {}
+
+    lemma LemmaPrepareQCExtension(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m1, m2 : Msg | && m1 in ss.msgSent
+                                  && m2 in ss.msgSent
+                                  && ValidQC(m1.justify)
+                                  && ValidQC(m2.justify)
+                                  && m1.justify.cType == MT_Prepare
+                                  && m2.justify.cType == MT_Prepare
+                                  && m1.justify.viewNum <= m2.justify.viewNum
+                                ::
+                                  extension(m2.justify.block, m1.justify.block)
+    {
+        LemmaPrepareQCCanOnlyFormedByExtend(ss);
+    }
+    
+    lemma LemmaPrepareQCCanOnlyFormedByExtend(ss : SystemState)
+    requires ValidSystemState(ss)
+    ensures forall m : Msg | && m in ss.msgSent
+                             && ValidQC(m.justify)
+                             && m.justify.cType == MT_Prepare
+                          ::
+                             forall m_acs : Msg | && m_acs in ss.msgSent
+                                                  && ValidQC(m_acs.justify)
+                                                  && m_acs.justify.cType == MT_Prepare
+                                               ::
+                                                  m_acs.justify.viewNum <= m.justify.viewNum
+                                                  ==>
+                                                  extension(m.justify.block, m_acs.justify.block)
+    {
+        
+    }
+                                                  
+
 }

@@ -377,12 +377,15 @@ module M_Replica {
             || (exists m | && m in s.msgRecieved
                            && m.mType.MT_Decide?
                            && m.justify.Cert?
+                           && m.justify.cType.MT_Commit?
                            && ValidQC(m.justify)
                            && m.justify.block.Block?
                         ::
                            s.bc <= getAncestors(m.justify.block)
             )
         )
+        && |s.bc| > 0
+        && s.bc[0] == M_SpecTypes.Genesis_Block
     }
 
     /**

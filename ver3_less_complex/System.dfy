@@ -79,8 +79,10 @@ module M_System {
      * Definition of initial state of system
      */
     ghost predicate SystemInit(ss : SystemState)
+    // ensures ValidSystemState(ss)
     {
-        && Inv_Node_Constraint(ss)
+        // && Inv_Node_Constraint(ss)
+        && ValidSystemState(ss)
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)

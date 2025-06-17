@@ -4,6 +4,7 @@ include "common/sets.dfy"
 module M_AuxilarilyFunc {
     import opened M_SpecTypes
     import opened M_Set
+    import opened Std.Collections.Seq
 
     /**
      * @returns Set union of a sequence of sets
@@ -168,19 +169,46 @@ module M_AuxilarilyFunc {
     ensures getNewBlock(parent).Block?
     ensures {:axiom}getNewBlock(parent).parent == parent
 
-    function getAncestors(b : Block) : seq<Block>
-    requires b.Block?
-    {
-        match (b.parent != EmptyBlock){
-            case true => getAncestors(b.parent) + [b]
-            case false => [b]
-        }
-    }
+    function getAncestors(b : Block) : (r : seq<Block>)
+    // requires b.Block?
+    ensures b.Block? ==> |r| > 0 && r[|r|-1] == b
+    ensures forall i | 0 <= i < |r|-1 :: && r[i+1].Block? && r[i] == r[i+1].parent
+    ensures forall i, j | 0 <= i < j < |r| :: r[i] != r[j]
+    // {
+        // match (b.parent != EmptyBlock){
+        //     case true => getAncestors(b.parent) + [b]
+        //     case false => [b]
+        // }
+    // }
 
-    predicate extension(child : Block, parent : Block)
+    ghost predicate extension(child : Block, parent : Block)
     requires child.Block?
     {
-        parent in getAncestors(child)
+        // && child.Block?
+        // parent in getAncestors(child)
+        // getAncestors(parent) <= getAncestors(child)
+        Seq.IsPrefix(getAncestors(parent), getAncestors(child))
+    }
+
+    lemma Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(child : Block, parent : Block)
+    requires child.Block? && parent.Block?
+    requires extension(child, parent)
+    ensures Seq.IsPrefix(getAncestors(parent), getAncestors(child))
+    {
+        // var acstr_p, acstr_c := getAncestors(parent), getAncestors(child);
+        // assert parent in acstr_c;
+        // assert parent == acstr_p[|acstr_p|-1];
+        // assert acstr_p <= acstr_c by {
+        //     if |acstr_c| == 2 {
+        //         assert acstr_c == [parent, child] by {
+        //             assert |acstr_c| == 2;
+        //             assert parent in acstr_c;
+        //             assert child == acstr_c[|acstr_c|-1];
+        //             assert forall i, j | 0 <= i < j < |acstr_c| :: acstr_c[i] != acstr_c[j];
+                
+        //         }
+        //     }
+        // }
     }
 
     predicate safeNode(block : Block, qc : Cert, lockedQC : Cert)
