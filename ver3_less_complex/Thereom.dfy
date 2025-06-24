@@ -51,7 +51,7 @@ module M_Thereom {
      * Sytem invariants (described in `ValidSystemState`) imply the safety property.
      *
     */
-    lemma Lemma_Inv_Implies_Safety(ss : SystemState)
+    lemma LemmaInvImpliesSafety(ss : SystemState)
     requires ValidSystemState(ss)
     ensures forall r1, r2 | 
                             && IsHonest(ss, r1)
@@ -100,10 +100,8 @@ module M_Thereom {
                                    && ValidQC(m2.justify)
                                    && m2.justify.block.Block?
                                    && s2.bc <= getAncestors(m2.justify.block);
-                // Prove : m1.justify.block does conflict with m2.justify.block
-                // assert m1 in ss.msgSent;
+
                 assert m1 in ss.msgSent by {
-                    // assert m1 in s1.msgRecieved;
                     assert s1.msgRecieved <= ss.msgSent by {
                         LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                     }
@@ -147,11 +145,11 @@ module M_Thereom {
                 
                 if m1_p.justify.viewNum <= m2_p.justify.viewNum {
                     assert extension(m2_p.justify.block, m1_p.justify.block) by {
-                        LemmaPrepareQCExtension(ss);
+                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
                     }
                 } else {
                     assert extension(m1_p.justify.block, m2_p.justify.block) by {
-                        LemmaPrepareQCExtension(ss);
+                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
                     }
                 }
 
@@ -174,6 +172,10 @@ module M_Thereom {
                 assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr;
                 assert s2.bc <= s1.bc || s1.bc <= s2.bc;
                 
+            }
+            else {  // s1.bc == [M_SpecTypes.Genesis_Block] || s2.bc == [M_SpecTypes.Genesis_Block]
+                // OBSERVE 
+                // by the invariant that an honest replica always holds a local blockchain starting with Genesis_Block
             }
         }
     }
@@ -458,11 +460,11 @@ module M_Thereom {
                                         && m2_p.justify.viewNum == qc2.viewNum;
             if m1_p.justify.viewNum <= m2_p.justify.viewNum {
                     assert extension(m2_p.justify.block, m1_p.justify.block) by {
-                        LemmaPrepareQCExtension(ss);
+                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
                     }
                 } else {
                     assert extension(m1_p.justify.block, m2_p.justify.block) by {
-                        LemmaPrepareQCExtension(ss);
+                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
                     }
                 }
 

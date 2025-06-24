@@ -49,7 +49,7 @@ module M_System {
         && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
     }
 
-    lemma Lemma_Initial_State_Holds_Is_Valid(ss : SystemState)
+    lemma LemmaInitialSystemStateHoldsValidity(ss : SystemState)
     requires SystemInit(ss)
     ensures ValidSystemState(ss)
     {
@@ -67,7 +67,7 @@ module M_System {
     //    assert Inv_Constant_Fields(ss);
     }
 
-    lemma Lemma_System_Next_Is_Valid(ss : SystemState, ss' : SystemState)
+    lemma LemmaSystemTransitionHoldsValidity(ss : SystemState, ss' : SystemState)
     requires ValidSystemState(ss)
     requires SystemNext(ss, ss')
     ensures ValidSystemState(ss')
@@ -81,8 +81,8 @@ module M_System {
     ghost predicate SystemInit(ss : SystemState)
     // ensures ValidSystemState(ss)
     {
-        // && Inv_Node_Constraint(ss)
-        && ValidSystemState(ss)
+        && Inv_Node_Constraint(ss)
+        // && ValidSystemState(ss)
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)

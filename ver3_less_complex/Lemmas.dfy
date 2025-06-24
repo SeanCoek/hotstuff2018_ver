@@ -291,7 +291,7 @@ module M_Lemma {
                                                                      && voteMsg.partialSig == s)
     // {}
 
-    lemma LemmaPrepareQCExtension(ss : SystemState)
+    lemma LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss : SystemState)
     requires ValidSystemState(ss)
     ensures forall m1, m2 : Msg | && m1 in ss.msgSent
                                   && m2 in ss.msgSent
@@ -320,7 +320,7 @@ module M_Lemma {
                                                   ==>
                                                   extension(m.justify.block, m_acs.justify.block)
     {
-        
+
     }
                                                   
 

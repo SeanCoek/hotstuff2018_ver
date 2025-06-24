@@ -164,30 +164,40 @@ module M_AuxilarilyFunc {
     ensures getHighQC(msgs).Cert?
     ensures getHighQC(msgs).block.Block?
 
-    function getNewBlock(parent : Block) : Block
-    requires parent.Block?
-    ensures getNewBlock(parent).Block?
-    ensures {:axiom}getNewBlock(parent).parent == parent
+    function getNewBlock(parent : Block) : (r : Block)
+    // requires parent.Block?
+    // ensures getNewBlock(parent).Block?
+    // ensures {:axiom}getNewBlock(parent).parent == parent
+    // ensures getNewBlock(parent).parent != getNewBlock(parent)
+    ensures r.Block?
+    ensures r.parent == parent
+    ensures r.parent != r
 
     function getAncestors(b : Block) : (r : seq<Block>)
     // requires b.Block?
-    ensures b.Block? ==> |r| > 0 && r[|r|-1] == b
+    // ensures b.parent.Block? ==> |r| > 0 && r[|r|-1] == b
+    ensures forall i | 0 <= i < |r| :: r[i].Block?
+    ensures forall i, j | 0 <= i < j < |r| :: r[i] != r[j]  // None duplication
     ensures forall i | 0 <= i < |r|-1 :: && r[i+1].Block? && r[i] == r[i+1].parent
-    ensures forall i, j | 0 <= i < j < |r| :: r[i] != r[j]
     // {
-        // match (b.parent != EmptyBlock){
-        //     case true => getAncestors(b.parent) + [b]
-        //     case false => [b]
-        // }
+    //     match (b.Block?) {
+    //         case true =>
+    //                     match (b.parent != EmptyBlock){
+    //                         case true => getAncestors(b.parent) + [b.parent]
+    //                         // case false => [b]
+    //                         case false => []
+    //                     }
+    //         case false => []
+    //     }
     // }
 
-    ghost predicate extension(child : Block, parent : Block)
+    predicate extension(child : Block, parent : Block)
     requires child.Block?
     {
         // && child.Block?
         // parent in getAncestors(child)
-        // getAncestors(parent) <= getAncestors(child)
-        Seq.IsPrefix(getAncestors(parent), getAncestors(child))
+        getAncestors(parent) <= getAncestors(child)
+        // Seq.IsPrefix(getAncestors(parent), getAncestors(child))
     }
 
     lemma Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(child : Block, parent : Block)
