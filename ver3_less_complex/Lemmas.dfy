@@ -185,10 +185,10 @@ module M_Lemma {
         }
     }
 
-    lemma LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
+    lemma LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
     requires ValidSystemState(ss)
     ensures forall r, msgs | && IsHonest(ss, r)
-                             && msgs == ss.nodeStates[r].msgRecieved
+                             && msgs == ss.nodeStates[r].msgReceived
                           ::
                              && msgs <= ss.msgSent
     // {
@@ -258,14 +258,14 @@ module M_Lemma {
     requires ValidSystemState(ss)
     requires ValidQC(lockedQC)
     requires IsHonest(ss, r)
-    ensures forall m : Msg | && m in ss.nodeStates[r].msgRecieved
+    ensures forall m : Msg | && m in ss.nodeStates[r].msgReceived
                           :: 
                             // && m.mType == MT_Prepare
                             && m.partialSig.Signature?
                             && m.partialSig.signer == r
                             && m.partialSig.mType == MT_Prepare
                             ==>
-                            (exists m1 : Msg :: && m1 in ss.nodeStates[r].msgRecieved
+                            (exists m1 : Msg :: && m1 in ss.nodeStates[r].msgReceived
                                                && m1.mType == MT_Prepare
                                                && ValidQC(m1.justify)
                                                && m1.justify.cType == MT_Prepare
@@ -287,7 +287,7 @@ module M_Lemma {
                              && forall s | s in signatures
                                         :: 
                                           && (exists voteMsg : Msg :: 
-                                                                     && voteMsg in ss.nodeStates[s.signer].msgRecieved
+                                                                     && voteMsg in ss.nodeStates[s.signer].msgReceived
                                                                      && voteMsg.partialSig == s)
     // {}
 

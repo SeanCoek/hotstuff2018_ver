@@ -69,7 +69,7 @@ module M_Thereom {
             // Here we should prove: s1.bc <= s2.bc || s2.bc <= s1.bc
             assert ValidReplicaState(s1) && ValidReplicaState(s2);
             if s1.bc != [M_SpecTypes.Genesis_Block] && s2.bc != [M_SpecTypes.Genesis_Block] {
-                assert exists m1 | && m1 in s1.msgRecieved
+                assert exists m1 | && m1 in s1.msgReceived
                                     && m1.mType.MT_Decide?
                                     && m1.justify.Cert?
                                     && m1.justify.cType == MT_Commit
@@ -77,7 +77,7 @@ module M_Thereom {
                                     && m1.justify.block.Block?
                                 ::
                                     s1.bc <= getAncestors(m1.justify.block);
-                var m1 :| && m1 in s1.msgRecieved
+                var m1 :| && m1 in s1.msgReceived
                                     && m1.mType.MT_Decide?
                                     && m1.justify.Cert?
                                     && m1.justify.cType == MT_Commit
@@ -85,7 +85,7 @@ module M_Thereom {
                                     && m1.justify.block.Block?
                                     && s1.bc <= getAncestors(m1.justify.block);
 
-                assert exists m2 | && m2 in s2.msgRecieved
+                assert exists m2 | && m2 in s2.msgReceived
                                    && m2.mType.MT_Decide?
                                    && m2.justify.Cert?
                                    && m2.justify.cType.MT_Commit?
@@ -93,7 +93,7 @@ module M_Thereom {
                                    && m2.justify.block.Block?
                                 ::
                                    s2.bc <= getAncestors(m2.justify.block);
-                var m2 :| && m2 in s2.msgRecieved
+                var m2 :| && m2 in s2.msgReceived
                                    && m2.mType.MT_Decide?
                                    && m2.justify.Cert?
                                    && m2.justify.cType.MT_Commit?
@@ -102,13 +102,13 @@ module M_Thereom {
                                    && s2.bc <= getAncestors(m2.justify.block);
 
                 assert m1 in ss.msgSent by {
-                    assert s1.msgRecieved <= ss.msgSent by {
-                        LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                    assert s1.msgReceived <= ss.msgSent by {
+                        LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                     }
                 }
                 assert m2 in ss.msgSent by {
-                    assert s2.msgRecieved <= ss.msgSent by {
-                        LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                    assert s2.msgReceived <= ss.msgSent by {
+                        LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                     }
                 }
 
@@ -220,8 +220,8 @@ module M_Thereom {
     lemma Thm_Two_Conflict_Block_Cant_Be_Both_Committed_By_Honest_Replica(ss : SystemState)
     requires ValidSystemState(ss)
     ensures !(exists r, m1 : Msg, m2 : Msg :: && IsHonest(ss, r)
-                                              && m1 in ss.nodeStates[r].msgRecieved
-                                              && m2 in ss.nodeStates[r].msgRecieved
+                                              && m1 in ss.nodeStates[r].msgReceived
+                                              && m2 in ss.nodeStates[r].msgReceived
                                               && m1.mType == MT_Decide
                                               && m2.mType == MT_Decide
                                               && ValidQC(m1.justify)
@@ -235,8 +235,8 @@ module M_Thereom {
     {
         // The negation of the conclusion
         if (exists r, m1 : Msg, m2 : Msg :: && IsHonest(ss, r)
-                                              && m1 in ss.nodeStates[r].msgRecieved
-                                              && m2 in ss.nodeStates[r].msgRecieved
+                                              && m1 in ss.nodeStates[r].msgReceived
+                                              && m2 in ss.nodeStates[r].msgReceived
                                               && m1.mType == MT_Decide
                                               && m2.mType == MT_Decide
                                               && ValidQC(m1.justify)
@@ -249,8 +249,8 @@ module M_Thereom {
              )
         {
             var r, m1, m2 :| && IsHonest(ss, r)
-                            && m1 in ss.nodeStates[r].msgRecieved
-                            && m2 in ss.nodeStates[r].msgRecieved
+                            && m1 in ss.nodeStates[r].msgReceived
+                            && m2 in ss.nodeStates[r].msgReceived
                             && m1.mType == MT_Decide
                             && m2.mType == MT_Decide
                             && ValidQC(m1.justify)
@@ -268,8 +268,8 @@ module M_Thereom {
             // Proof: qc1.viewNum != qc2.viewNum
             calc {
                 true;
-                ==> {LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
-                ss.nodeStates[r].msgRecieved <= ss.msgSent;
+                ==> {LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
+                ss.nodeStates[r].msgReceived <= ss.msgSent;
                 ==>
                 m1 in ss.msgSent && m2 in ss.msgSent;
                 ==> {LemmaViewDiffOnConflictCertificate(ss);}
@@ -286,8 +286,8 @@ module M_Thereom {
             // only if there exists a corresponding prepare-certificate. And here we have two valid 
             // commit-certifiacte (qc1, qc2).
             assert allPrepareQCMsg != {} by {
-                LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
-                assert ss.nodeStates[r].msgRecieved <= ss.msgSent;
+                LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                assert ss.nodeStates[r].msgReceived <= ss.msgSent;
                 assert m2 in ss.msgSent;
                 assert ValidQC(m2.justify);
                 assert m2.justify.cType == MT_Commit;
@@ -314,8 +314,8 @@ module M_Thereom {
             // Proof: Such matching messages must exist, cause there exists at least one message satisfying the predicate.
             // e.g. the corresponding prepare message for commit-certificate `qc2`
             assert matchingPrepareQCMsg != {} by {
-            LemmaMsgRecievedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
-            assert ss.nodeStates[r].msgRecieved <= ss.msgSent;
+            LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+            assert ss.nodeStates[r].msgReceived <= ss.msgSent;
             assert m2 in ss.msgSent;
             assert ValidQC(m2.justify);
             assert m2.justify.cType == MT_Commit;
@@ -353,7 +353,7 @@ module M_Thereom {
             // i.e. The existence of qcsMsg will violated the precondition `ValidSystemState(ss)`
             LemmaVoteMsgInValidQCAlsoRecievedByVoter(ss);
             assert exists voteMsg : Msg :: 
-                                          && voteMsg in ss.nodeStates[replica].msgRecieved
+                                          && voteMsg in ss.nodeStates[replica].msgReceived
                                           && voteMsg.partialSig.Signature?
                                           && voteMsg.partialSig.signer == replica
                                           && voteMsg.partialSig.mType == qcsMsg.justify.cType
@@ -362,7 +362,7 @@ module M_Thereom {
                                           ;
             
             var voteMsgByReplica : Msg :| 
-                                          && voteMsgByReplica in ss.nodeStates[replica].msgRecieved
+                                          && voteMsgByReplica in ss.nodeStates[replica].msgReceived
                                           && voteMsgByReplica.partialSig.Signature?
                                           && voteMsgByReplica.partialSig.signer == replica
                                           && voteMsgByReplica.partialSig.mType == qcsMsg.justify.cType
@@ -388,7 +388,7 @@ module M_Thereom {
             assert IsHonest(ss, replica);
 
             LemmaReplicaVotePrepareOnlyIfItRecievedASafetyPrepareQC(ss, replica, qc1);
-            assert exists m1 : Msg :: && m1 in ss.nodeStates[replica].msgRecieved
+            assert exists m1 : Msg :: && m1 in ss.nodeStates[replica].msgReceived
                                                && m1.mType == MT_Prepare
                                                && ValidQC(m1.justify)
                                                && m1.justify.cType == MT_Prepare
@@ -399,7 +399,7 @@ module M_Thereom {
                                                && voteMsgByReplica.partialSig.block == m1.block
                                                && m1.justify.viewNum < voteMsgByReplica.partialSig.viewNum;
 
-            var proposal_qcs : Msg :| && proposal_qcs in ss.nodeStates[replica].msgRecieved
+            var proposal_qcs : Msg :| && proposal_qcs in ss.nodeStates[replica].msgReceived
                                                && proposal_qcs.mType == MT_Prepare
                                                && ValidQC(proposal_qcs.justify)
                                                && proposal_qcs.justify.cType == MT_Prepare

@@ -8,11 +8,11 @@ module M_Adversary {
     /**
      * Definition of Byzantine nodes. We group all Byzantine nodes as a adversary.
      * @param byz_nodes -> ID of all Byzantine nodes
-     * @param msgRecieved -> Messages recieved by all Byzantine nodes
+     * @param msgReceived -> Messages recieved by all Byzantine nodes
      */
     datatype Adversary = Adversary(
         byz_nodes : set<Address>,
-        msgRecieved : set<Msg>
+        msgReceived : set<Msg>
     )
 
     /**
@@ -40,12 +40,12 @@ module M_Adversary {
         outMsg : set<Msg>
         )
     {
-        var msgRecieved := a.msgRecieved + inMsg;
+        var msgReceived := a.msgReceived + inMsg;
         && a' == a.(
-            msgRecieved := msgRecieved
+            msgReceived := msgReceived
         )
         && (forall m | m in outMsg ::
-                    || m in msgRecieved // keep the recieved message unchanged and forward to other nodes.
+                    || m in msgReceived // keep the recieved message unchanged and forward to other nodes.
                     // TODO: further faulty behavirous can be updated here, using disjunction `||`
             )
     }

@@ -105,7 +105,7 @@ module M_System {
         inMsg : set<Msg>,
         outMsg : set<Msg>)
     {
-        && var msgRecievedSingleSet := set mr:Msg | mr in inMsg;
+        && var msgReceivedSingleSet := set mr:Msg | mr in inMsg;
         && replica in ss.nodeStates
         // fixed set of replica
         && ss.nodeStates.Keys == ss'.nodeStates.Keys
@@ -114,10 +114,10 @@ module M_System {
             if IsHonest(ss, replica) then
                 && ss'.nodeStates == ss.nodeStates[replica := ss'.nodeStates[replica]]
                 && ss'.adversary == ss.adversary
-                && ReplicaNext(ss.nodeStates[replica], msgRecievedSingleSet, ss'.nodeStates[replica], outMsg)
+                && ReplicaNext(ss.nodeStates[replica], msgReceivedSingleSet, ss'.nodeStates[replica], outMsg)
             else
                 && ss'.nodeStates == ss.nodeStates
-                && AdversaryNext(ss.adversary, msgRecievedSingleSet, ss'.adversary, outMsg)
+                && AdversaryNext(ss.adversary, msgReceivedSingleSet, ss'.adversary, outMsg)
         )
         && ss.adversary.byz_nodes == ss'.adversary.byz_nodes
         && ss'.msgSent == ss.msgSent + outMsg
@@ -133,8 +133,8 @@ module M_System {
     // ensures ValidSystemState(ss')
     {
         || ss == ss'
-        || (exists replica, msgRecievedByNodes, msgSentByNodes
-                   | msgRecievedByNodes <= ss.msgSent
-                  :: SystemNextByOneReplica(ss, ss', replica, msgRecievedByNodes, msgSentByNodes))
+        || (exists replica, msgReceivedByNodes, msgSentByNodes
+                   | msgReceivedByNodes <= ss.msgSent
+                  :: SystemNextByOneReplica(ss, ss', replica, msgReceivedByNodes, msgSentByNodes))
     }
 }

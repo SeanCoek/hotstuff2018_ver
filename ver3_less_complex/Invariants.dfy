@@ -26,10 +26,10 @@ module M_Invariants {
     ghost predicate Inv_Honest_Node_Only_Vote_One_Proposal_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
-            var msgRecieved := ss.nodeStates[r].msgRecieved;
+            var msgReceived := ss.nodeStates[r].msgReceived;
             forall m1, m2 | 
-                            && m1 in msgRecieved
-                            && m2 in msgRecieved
+                            && m1 in msgReceived
+                            && m2 in msgReceived
                             && m1.mType == MT_Prepare
                             && m2.mType == MT_Prepare
                             && m1.partialSig.Signature?
@@ -49,10 +49,10 @@ module M_Invariants {
     ghost predicate Inv_Honest_Node_Only_Vote_One_Prepare_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
-            var msgRecieved := ss.nodeStates[r].msgRecieved;
+            var msgReceived := ss.nodeStates[r].msgReceived;
             forall m1, m2 | 
-                            && m1 in msgRecieved
-                            && m2 in msgRecieved
+                            && m1 in msgReceived
+                            && m2 in msgReceived
                             && m1.mType == MT_PreCommit
                             && m2.mType == MT_PreCommit
                             && m1.partialSig.Signature?
@@ -72,10 +72,10 @@ module M_Invariants {
     ghost predicate Inv_Honest_Node_Only_Vote_One_PreCommit_At_Same_View(ss : SystemState)
     {
         forall r | IsHonest(ss, r) ::
-            var msgRecieved := ss.nodeStates[r].msgRecieved;
+            var msgReceived := ss.nodeStates[r].msgReceived;
             forall m1, m2 | 
-                            && m1 in msgRecieved
-                            && m2 in msgRecieved
+                            && m1 in msgReceived
+                            && m2 in msgReceived
                             && m1.mType == MT_Commit
                             && m2.mType == MT_Commit
                             && m1.partialSig.Signature?

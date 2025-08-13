@@ -12,8 +12,8 @@ module M_Replica {
      *  c  : configuration about nodes and genesis block
      *  viewNum : view number
      *  prepareQC : Quorum Certificate for prepare message
-     *  commitQC : Qurum Certificate for commit message, also refers to "lockQC" at the HotStuff paper
-     *  msgRecieved : all the messages recieved
+     *  commitQC : Qurum Certificate for pre-commit message, also refers to "lockQC" at the HotStuff paper
+     *  msgReceived : all the messages recieved
      *  highestExecutedBlock : executed block with the highest view number
      */
     datatype ReplicaState = ReplicaState(
@@ -23,7 +23,7 @@ module M_Replica {
         viewNum : nat,
         prepareQC : Cert,
         commitQC : Cert,
-        msgRecieved : set<Msg>
+        msgReceived : set<Msg>
         // highestExecutedBlock : Block
     )
 
@@ -38,7 +38,7 @@ module M_Replica {
         && r.viewNum == 1
         && r.prepareQC == CertNone
         && r.commitQC == CertNone
-        && r.msgRecieved == {}
+        && r.msgReceived == {}
         // && r.highestExecutedBlock == EmptyBlock
     }
 
@@ -71,7 +71,7 @@ module M_Replica {
 
     /**
      * Consider this as a big step of state transition.
-     * A current state (@param:r) recieves many messages (@param:inMsg), 
+     * A current state (@param:r) receives many messages (@param:inMsg), 
      * and then transfer to another state (@param:r') by many single actions defined in @Func:ReplicaNextSubStep,
      * sending out messages (@param:outMsg) during those transition path.
      */
@@ -83,9 +83,9 @@ module M_Replica {
         outMsg : set<Msg>
         )
     {
-        var allMsgReceived := r.msgRecieved + inMsg;
+        var allMsgReceived := r.msgReceived + inMsg;
         var replicaWithNewMsgReceived := r.(
-            msgRecieved := allMsgReceived
+            msgReceived := allMsgReceived
         );
 
         exists s : seq<ReplicaState>, o : seq<set<Msg>> ::
@@ -143,9 +143,9 @@ module M_Replica {
         // var leader := leader(r.viewNum);
         // if (leader == r.id){
         //     calc {
-        //         r'.msgRecieved;
+        //         r'.msgReceived;
         //         >=
-        //         r.msgRecieved;
+        //         r.msgReceived;
         //     }
         // }
         // else {  // OBSERVE
@@ -176,17 +176,17 @@ module M_Replica {
         if leader == r.id // Leader
         then
             // assume r.viewNum > 0;
-            var matchMsgs := getMatchMsg(r.msgRecieved, MT_NewView, r.viewNum-1);
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_NewView, r.viewNum-1);
             var highQC := getHighQC(matchMsgs);
             var proposal := getNewBlock(highQC.block);
             var proposeMsg := Msg(MT_Prepare, r.viewNum, proposal, highQC, SigNone);
 
-            && r' == r.(msgRecieved := r.msgRecieved + {proposeMsg})
+            && r' == r.(msgReceived := r.msgReceived + {proposeMsg})
             // && outMsg == Multicast(proposeMsg, r.c.nodes)
             && outMsg == {proposeMsg}
 
         else
-            var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
             // var votes : set<Msg> := {};
             && (forall m | m in matchMsgs ::
                     var sig := Signature(r.id, m.mType, m.viewNum, m.block);
@@ -218,7 +218,7 @@ module M_Replica {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
-            var matchMsgs := getMatchMsg(r.msgRecieved, MT_Prepare, r.viewNum);
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
             // What if these message contain different voted blocks?
             // Split thess message by responding block, and get the group with the most elements.
             var splitSets := splitMsgByBlocks(matchMsgs);
@@ -235,14 +235,14 @@ module M_Replica {
                 var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                 // assert ValidQC(prepareQC);
                 var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {precommitMsg})
+                && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
                 // && outMsg == Multicast(precommitMsg, r.c.nodes)
                 && outMsg == {precommitMsg}
             else
                 && r' == r
                 && |outMsg| == 0
         else
-            var matchQCs := getMatchQC(r.msgRecieved, MT_Prepare, r.viewNum);
+            var matchQCs := getMatchQC(r.msgReceived, MT_Prepare, r.viewNum);
             // What if these QCs contain different certificated block? 
             // Impossible in theory, but have to prove it
             if |matchQCs| > 0 
@@ -266,7 +266,7 @@ module M_Replica {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
-            var matchMsgs := getMatchMsg(r.msgRecieved, MT_PreCommit, r.viewNum);
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_PreCommit, r.viewNum);
             if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 var m :| m in matchMsgs;
@@ -275,13 +275,13 @@ module M_Replica {
                 var sgns := ExtractSignatrues(matchMsgs);
                 var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
                 var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {commitMsg})
+                && r' == r.(msgReceived := r.msgReceived + {commitMsg})
                 && outMsg == {commitMsg}
             else
                 && r' == r
                 && |outMsg| == 0
         else
-            var matchQCs := getMatchQC(r.msgRecieved, MT_PreCommit, r.viewNum);
+            var matchQCs := getMatchQC(r.msgReceived, MT_PreCommit, r.viewNum);
             forall m | m in matchQCs ::
                 var sig := Signature(r.id, m.cType, m.viewNum, m.block);
                 var vote := Msg(MT_Commit, r.viewNum, m.block, CertNone, sig);
@@ -297,7 +297,7 @@ module M_Replica {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
-            var matchMsgs := getMatchMsg(r.msgRecieved, MT_Commit, r.viewNum);
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_Commit, r.viewNum);
             if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
                 var m :| m in matchMsgs;
@@ -306,13 +306,13 @@ module M_Replica {
                 var sgns := ExtractSignatrues(matchMsgs);
                 var commitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
                 var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
-                && r' == r.(msgRecieved := r.msgRecieved + {decideMsg})
+                && r' == r.(msgReceived := r.msgReceived + {decideMsg})
                 && outMsg == {decideMsg}
             else
                 && r' == r
                 && |outMsg| == 0
         else
-            var matchQCs := getMatchQC(r.msgRecieved, MT_Commit, r.viewNum);
+            var matchQCs := getMatchQC(r.msgReceived, MT_Commit, r.viewNum);
             forall m | m in matchQCs ::
                 && m.Cert?
                 && m.block.Block?
@@ -356,7 +356,7 @@ module M_Replica {
         && (s.prepareQC.Cert? ==>
                                 && ValidQC(s.prepareQC)
                                 && s.prepareQC.cType == MT_Prepare
-                                && exists m | m in s.msgRecieved
+                                && exists m | m in s.msgReceived
                                             ::
                                             && m.mType.MT_PreCommit?
                                             && m.justify == s.prepareQC
@@ -366,7 +366,7 @@ module M_Replica {
         && (s.commitQC.Cert? ==>
                                 && ValidQC(s.commitQC)
                                 && s.commitQC.cType == MT_PreCommit
-                                && exists m | m in s.msgRecieved
+                                && exists m | m in s.msgReceived
                                             ::
                                             && m.mType.MT_Commit?
                                             && m.justify == s.commitQC
@@ -374,7 +374,7 @@ module M_Replica {
         // If a replica received a Decide Message with a valid certificate,
         // then it should always update its local blockchain accordingly.
         && (|| s.bc == [M_SpecTypes.Genesis_Block]
-            || (exists m | && m in s.msgRecieved
+            || (exists m | && m in s.msgReceived
                            && m.mType.MT_Decide?
                            && m.justify.Cert?
                            && m.justify.cType.MT_Commit?
