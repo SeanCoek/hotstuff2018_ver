@@ -19,12 +19,11 @@ module M_Replica {
     datatype ReplicaState = ReplicaState(
         id : Address,
         bc : Blockchain,
-        // c : Configuration,
+        // c : Configuration
         viewNum : nat,
         prepareQC : Cert,
         commitQC : Cert,
         msgReceived : set<Msg>
-        // highestExecutedBlock : Block
     )
 
     /**
@@ -34,12 +33,10 @@ module M_Replica {
     {
         && r.id == id
         && r.bc == [M_SpecTypes.Genesis_Block]
-        // && r.c == c
         && r.viewNum == 1
         && r.prepareQC == CertNone
         && r.commitQC == CertNone
         && r.msgReceived == {}
-        // && r.highestExecutedBlock == EmptyBlock
     }
 
     lemma LemmaInitReplicaIsValid(r : ReplicaState)
@@ -47,19 +44,46 @@ module M_Replica {
     requires M_SpecTypes.All_Nodes != {}
     ensures ValidReplicaState(r)
     {
-        // assert Inv_Blockchain_Inner_Consistency(r.bc);
-        // assert r.commitQC.CertNone?;
-        // assert r.prepareQC.CertNone?;
-        // assert r.bc == [M_SpecTypes.Genesis_Block];
+        
+        assert Inv_Blockchain_Inner_Consistency(r.bc);
+        assert r.commitQC.CertNone?;
+        assert r.prepareQC.CertNone?;
+        assert r.bc == [M_SpecTypes.Genesis_Block];
     }
 
-    lemma LemmaReplicaNextIsValid(r : ReplicaState, r' : ReplicaState)
+    lemma LemmaReplicaNextSubIsValid(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires M_SpecTypes.All_Nodes != {}
     requires ValidReplicaState(r)
-    ensures forall inMsg, outMsg | ReplicaNext(r, inMsg, r', outMsg)
-                                :: ValidReplicaState(r')
+    requires ReplicaNextSubStep(r, r', outMsg)
+    // ensures forall inMsg, outMsg | ReplicaNext(r, inMsg, r', outMsg)
+    //                             :: ValidReplicaState(r')
+    ensures ValidReplicaState(r')
     {
         
+        if exists outMsg :: ReplicaNextSubStep(r, r', outMsg)
+        {
+            var outMsg :| ReplicaNextSubStep(r, r', outMsg);
+            if UponPrepare(r, r', outMsg)
+            {
+                LemmaValidationHoldsInPreparePhase(r, r', outMsg);
+            }
+            else if UponPreCommit(r, r', outMsg)
+            {
+                LemmaValidationHoldsInPreCommitPhase(r, r', outMsg);
+            }
+            else if UponCommit(r, r', outMsg)
+            {
+                LemmaValidationHoldsInCommitPhase(r, r', outMsg);
+            }
+            else if UponDecide(r, r', outMsg)
+            {
+                LemmaValidationHoldsInDecidePhase(r, r', outMsg);
+            }
+            else
+            {
+                // UponNextView, UponTimeOut are proved automatically by Dafny
+            }
+        }
     }
 
     predicate Inv_Node_Constraint()
@@ -108,7 +132,6 @@ module M_Replica {
     ghost predicate ReplicaNextSubStep(
         r : ReplicaState, 
         r' : ReplicaState, 
-        // outMsg : set<MsgWithRecipient>
         outMsg : set<Msg>
         )
     {
@@ -123,8 +146,6 @@ module M_Replica {
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     {
-        // var newLeader := leader(r.viewNum+1);
-        // var newViewMsg := MsgWithRecipient(Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone), newLeader);
         var newViewMsg := Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
         && r' == r.(
             viewNum := r.viewNum + 1
@@ -135,9 +156,10 @@ module M_Replica {
 
     lemma LemmaTestValidationOfTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
-    // requires UponNextView(r, r', outMsg)
-    // requires UponTimeOut(r, r', outMsg)
-    requires UponPrepare(r, r', outMsg)
+    // requires UponNextView(r, r', outMsg)     Q.E.D
+    // requires UponTimeOut(r, r', outMsg)      Q.E.D
+    // requires UponPrepare(r, r', outMsg)      Q.E.D
+
     ensures ValidReplicaState(r')
     {
         // var leader := leader(r.viewNum);
@@ -153,21 +175,85 @@ module M_Replica {
     }
 
     lemma LemmaValidationHoldsInPreparePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires M_SpecTypes.All_Nodes != {}
+    // requires M_SpecTypes.All_Nodes != {}
     requires ValidReplicaState(r)
     requires UponPrepare(r, r', outMsg)
     ensures ValidReplicaState(r')
     {
-
     }
 
     lemma LemmaValidationHoldsInPreCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires UponPreCommit(r, r', outMsg)
     requires ValidReplicaState(r)
+    requires UponPreCommit(r, r', outMsg)
+    ensures ValidReplicaState(r')
+    {
+        var leader := leader(r.viewNum);
+        assert r'.viewNum > 0;
+        assert Inv_Blockchain_Inner_Consistency(r'.bc);
+        assert (||(&& r'.commitQC.Cert?
+               && r'.commitQC.block.Block?
+               && r'.bc <= getAncestors(r'.commitQC.block)
+               )
+            ||(r'.commitQC.CertNone?)
+            );
+        assert && |r'.bc| > 0
+               && r'.bc[0] == M_SpecTypes.Genesis_Block;
+        
+        assert (r'.prepareQC.Cert? ==>
+                                && ValidQC(r'.prepareQC)
+                                && r'.prepareQC.cType == MT_Prepare
+                                && exists m | m in r'.msgReceived
+                                            ::
+                                            && m.mType.MT_PreCommit?
+                                            && m.justify == r'.prepareQC
+            ) by {
+                if leader == r.id {
+                    assert ValidQC(r'.prepareQC);
+                    assert r'.prepareQC.cType == MT_Prepare;
+                }
+                else {
+                    assert ValidQC(r'.prepareQC);
+                }
+        }
+        
+        assert (r'.commitQC.Cert? ==>
+                                && ValidQC(r'.commitQC)
+                                && r'.commitQC.cType == MT_PreCommit
+                                && exists m | m in r'.msgReceived
+                                            ::
+                                            && m.mType.MT_Commit?
+                                            && m.justify == r'.commitQC
+            );
+
+        assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+                || (exists m | && m in r'.msgReceived
+                            && m.mType.MT_Decide?
+                            && m.justify.Cert?
+                            && m.justify.cType.MT_Commit?
+                            && ValidQC(m.justify)
+                            && m.justify.block.Block?
+                            ::
+                            r'.bc <= getAncestors(m.justify.block)
+                )
+         );
+    }
+
+    lemma LemmaValidationHoldsInCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires UponCommit(r, r', outMsg)
     ensures ValidReplicaState(r')
     {
 
     }
+
+    lemma LemmaValidationHoldsInDecidePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires UponDecide(r, r', outMsg)
+    ensures ValidReplicaState(r')
+    {
+
+    }
+
 
     predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
     requires ValidReplicaState(r)
@@ -181,17 +267,10 @@ module M_Replica {
             var proposal := getNewBlock(highQC.block);
             var proposeMsg := Msg(MT_Prepare, r.viewNum, proposal, highQC, SigNone);
 
-            && r' == r.(msgReceived := r.msgReceived + {proposeMsg})
-            // && outMsg == Multicast(proposeMsg, r.c.nodes)
-            && outMsg == {proposeMsg}
-
-        else
-            var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
-            // var votes : set<Msg> := {};
-            && (forall m | m in matchMsgs ::
+            var matchMsgs2 := getMatchMsg(r.msgReceived + {proposeMsg}, MT_Prepare, r.viewNum);
+            && (forall m | m in matchMsgs2 ::
                     var sig := Signature(r.id, m.mType, m.viewNum, m.block);
                     var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
-                    // var voteMsg := MsgWithRecipient(vote, leader);
                     
                     if  && m.block.Block?
                         && m.justify.Cert? 
@@ -199,15 +278,26 @@ module M_Replica {
                         && r.commitQC.Cert?
                         && safeNode(m.block, m.justify, r.commitQC)
                     then
-                        // vote in outMsg
-                        // votes := votes + {vote};
-                        // && r' == r
+                        && outMsg == {vote, proposeMsg}
+                    else
+                        && outMsg == {proposeMsg}
+                )
+            && r' == r.(msgReceived := r.msgReceived + {proposeMsg})
+        else
+            var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
+            && (forall m | m in matchMsgs ::
+                    var sig := Signature(r.id, m.mType, m.viewNum, m.block);
+                    var vote := Msg(MT_Prepare, r.viewNum, m.block, CertNone, sig);
+                    
+                    if  && m.block.Block?
+                        && m.justify.Cert? 
+                        && extension(m.block, m.justify.block) 
+                        && r.commitQC.Cert?
+                        && safeNode(m.block, m.justify, r.commitQC)
+                    then
                         && outMsg == {vote}
                     else
-                        // votes := votes - {vote};
-                        // && r' == r
-                        && !(vote in outMsg)
-                        // outMsg == {}
+                        && outMsg == {}
                 )
             && r' == r
     }
@@ -218,30 +308,51 @@ module M_Replica {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
         then
-            var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
-            // What if these message contain different voted blocks?
-            // Split thess message by responding block, and get the group with the most elements.
-            var splitSets := splitMsgByBlocks(matchMsgs);
-            var maxSet :| && maxSet in splitSets
-                          && (forall sset | sset in splitSets
-                                    :: |maxSet| >= |sset|);
-            if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
-            then
-                // var m :| m in matchMsgs;
-                // forall m | m in matchMsgs
-                //         ::
-                var m :| m in maxSet;
-                var sgns := ExtractSignatrues(maxSet);
-                var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
-                // assert ValidQC(prepareQC);
-                var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
-                && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
-                // && outMsg == Multicast(precommitMsg, r.c.nodes)
-                && outMsg == {precommitMsg}
-            else
-                && r' == r
-                && |outMsg| == 0
-        else
+            // Leader doing leader and replica's work
+            var matchQCs := getMatchQC(r.msgReceived, MT_Prepare, r.viewNum);
+            if |matchQCs| > 0 
+            then 
+                var m_qc :| m_qc in matchQCs;
+                var sig := Signature(r.id, m_qc.cType, m_qc.viewNum, m_qc.block);
+                var vote := Msg(MT_PreCommit, r.viewNum, m_qc.block, CertNone, sig);
+
+                var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
+                // What if these message contain different voted blocks?
+                // Split thess message by responding block, and get the group with the most elements.
+                var splitSets := splitMsgByBlocks(matchMsgs);
+                var maxSet :| && maxSet in splitSets
+                              && (forall sset | sset in splitSets
+                                        :: |maxSet| >= |sset|);
+                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                then
+                    var m :| m in maxSet;
+                    var sgns := ExtractSignatrues(maxSet);
+                    var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
+                    && r' == r.(prepareQC := m_qc)
+                    && outMsg == {vote, precommitMsg}
+                else
+                    && r' == r.(prepareQC := m_qc)
+                    && outMsg == {vote}
+            else    // Only doing leader's work
+                var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
+                var splitSets := splitMsgByBlocks(matchMsgs);
+                var maxSet :| && maxSet in splitSets
+                              && (forall sset | sset in splitSets
+                                        :: |maxSet| >= |sset|);
+                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                then
+                    var m :| m in maxSet;
+                    var sgns := ExtractSignatrues(maxSet);
+                    var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
+                    && outMsg == {precommitMsg}
+                else
+                    && r' == r
+                    && outMsg == {}
+        else    // Only doing replica's work
             var matchQCs := getMatchQC(r.msgReceived, MT_Prepare, r.viewNum);
             // What if these QCs contain different certificated block? 
             // Impossible in theory, but have to prove it
@@ -252,16 +363,16 @@ module M_Replica {
                 var vote := Msg(MT_PreCommit, r.viewNum, m.block, CertNone, sig);
                 // var voteMsg := MsgWithRecipient(vote, leader);
                 && r' == r.(prepareQC := m)
-                && vote in outMsg
+                && outMsg == {vote}
             
             else 
                 && r' == r
-                && |outMsg| == 0
+                && outMsg == {}
     }
 
     ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
-    requires M_SpecTypes.All_Nodes != {}
+    // requires M_SpecTypes.All_Nodes != {}
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -339,7 +450,7 @@ module M_Replica {
     {
         // TODO: invarians about a replica state
         //
-        && Inv_Node_Constraint()
+        // && Inv_Node_Constraint()
         && s.viewNum > 0
         // The local blockchain should alwarys be consistent
         && Inv_Blockchain_Inner_Consistency(s.bc)

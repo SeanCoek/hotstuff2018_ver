@@ -49,11 +49,10 @@ module M_SpecTypes {
 
     const Genesis_Block : Block
     
-    // refactor as global
-    // datatype Configuration = Configuration(
-    //     honestNodes : set<Address> := Honest_Nodes,
-    //     adversaryNodes : set<Address> := Adversary_Nodes,
-    //     nodes : set<Address> := honestNodes + adversaryNodes,   // all the nodes, containing byzantine nodes
-    //     genesisBlock : Block
-    // )
+    datatype Configuration = Configuration(
+        honestNodes : set<Address>,
+        adversaryNodes : set<Address>,
+        nodes : set<Address> := honestNodes + adversaryNodes,   // all the nodes, containing byzantine nodes
+        genesisBlock : Block
+    )
 }

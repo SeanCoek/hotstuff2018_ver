@@ -12,13 +12,11 @@ module M_System {
 
     /**
      * Definition of a system state
-     * @param configuration -> infomations about system settings, such like node address, genesis block, etc.
      * @param nodeStates -> a map storing node states, using node address as key
      * @param adversary -> structure for Byzantine nodes
      * @param msgSent -> all message sent by replicas
      */
     datatype SystemState = SystemState(
-        // configuration : Configuration,
         nodeStates : map<Address, ReplicaState>,
         adversary : Adversary,
         msgSent : set<Msg>
