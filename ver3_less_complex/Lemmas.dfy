@@ -1,18 +1,20 @@
 include "Type.dfy"
 include "Auxilarily.dfy"
 include "System.dfy"
+include "Trace.dfy"
 
 module M_Lemma {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
     import opened M_System
+    import opened M_Trace
 
-    lemma{:axiom} Axiom_Byz_Constraints()
-    ensures |Adversary_Nodes| <= f(|All_Nodes|)
-    ensures Adversary_Nodes * Honest_Nodes == {}
+    // lemma{:axiom} Axiom_Byz_Constraints()
+    // ensures |Adversary_Nodes| <= f(|All_Nodes|)
+    // ensures Adversary_Nodes * Honest_Nodes == {}
 
-    lemma{:axiom} Axiom_Common_Constraints()
-    ensures All_Nodes != {}
+    // lemma{:axiom} Axiom_Common_Constraints()
+    // ensures All_Nodes != {}
 
     lemma{:axiom} NoOuterClient()
     ensures forall cert : Signature :: cert.signer in All_Nodes
@@ -185,8 +187,9 @@ module M_Lemma {
         }
     }
 
-    lemma LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
-    requires ValidSystemState(ss)
+    lemma LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures forall r, msgs | && IsHonest(ss, r)
                              && msgs == ss.nodeStates[r].msgReceived
                           ::
@@ -196,7 +199,8 @@ module M_Lemma {
     // }
 
     lemma LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss : SystemState)
-    requires ValidSystemState(ss)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures forall m : Msg | && m in ss.msgSent
                              && ValidQC(m.justify)
                              && m.justify.cType == MT_PreCommit
@@ -218,7 +222,8 @@ module M_Lemma {
     // }
 
     lemma LemmaExistValidPrecommitQCForEveryValidCommitQC(ss : SystemState)
-    requires ValidSystemState(ss)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures forall m : Msg | && m in ss.msgSent
                              && ValidQC(m.justify)
                              && m.justify.cType == MT_Commit
@@ -235,7 +240,8 @@ module M_Lemma {
 
 
     lemma LemmaExistValidPrepareQCForEveryValidCommitQC(ss : SystemState)
-    requires ValidSystemState(ss)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures forall m : Msg | && m in ss.msgSent
                              && ValidQC(m.justify)
                              && m.justify.cType == MT_Commit
@@ -323,5 +329,12 @@ module M_Lemma {
 
     }
                                                   
+
+    lemma LemmaReachableStateIsValid(ss : SystemState)
+    requires Reachable(ss)
+    ensures ValidSystemState(ss)
+    {
+
+    }
 
 }

@@ -5,6 +5,7 @@ module M_AuxilarilyFunc {
     import opened M_SpecTypes
     import opened M_Set
     import opened Std.Collections.Seq
+    import opened Std.Collections.Set
 
     /**
      * @returns Set union of a sequence of sets
@@ -36,9 +37,9 @@ module M_AuxilarilyFunc {
     *          the assumption that no more than `f(setSeize)` validators are
     *          Byzantine.
     */
-    function quorum(setSize : nat) : (ret: nat)
-    requires setSize > 0
-    ensures ret <= setSize
+    function quorum(setSize : nat) : (r: nat)
+    // requires setSize > 0
+    ensures r <= setSize
     {
         // 2*(setSize - 1) / 3 + 1
         // 2 * f(setSize) + 1
@@ -47,7 +48,7 @@ module M_AuxilarilyFunc {
         //     setSize - f(setSize) + 1
         // else
         //     2 * f(setSize) + 1
-        setSize - f(setSize)
+        if setSize == 0 then 0 else setSize - f(setSize)
     }  
 
     lemma LemmaTwoQuorumIntersection(
@@ -124,12 +125,14 @@ module M_AuxilarilyFunc {
 
     function leader(round : nat) : Address
 
-    function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Msg>
-    {
-        set m | && m in msgs
-                && m.mType == msgType
-                && m.viewNum == view
-    }
+    function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Msg>)
+    ensures forall m | m in r :: m in msgs && m.mType == msgType && m.viewNum == view
+    ensures forall m | m in msgs :: (m.mType == msgType && m.viewNum == view) ==> m in r
+    // {
+    //     set m | && m in msgs
+    //             && m.mType == msgType
+    //             && m.viewNum == view
+    // }
 
     // method ExtractSignatrues(msgs : set<Msg>) returns (sgns : set<Signature>)
     // {
@@ -144,31 +147,32 @@ module M_AuxilarilyFunc {
     //     }
     // }
 
-    function ExtractSignatrues(msgs : set<Msg>) : set<Signature>
+    function ExtractSignatrues(msgs : set<Msg>) : (r : set<Signature>)
+    ensures |r| == |msgs|
+    ensures forall s | s in r :: exists m | m in msgs :: m.partialSig == s
 
 
-    ghost function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : set<Cert>
-    {
-        // set qc | qc in msg.justify ::
-        //                 && qc.mType == msgType
-        //                 && qc.viewNum == view
-        set m | && m in msgs 
-                && m.justify.Cert?
-                && m.justify.cType == msgType    
-                && m.justify.viewNum == view
-              ::
-                m.justify
-    }
+    ghost function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Cert>)
+    ensures forall c | c in r :: c.Cert? && c.cType == msgType && c.viewNum == view
+    ensures forall c | c in r :: exists m | m in msgs :: m.justify == c
+    ensures forall c | c in r :: ValidQC(c)
+    // {
+    //     set m | && m in msgs 
+    //             && m.justify.Cert?
+    //             && m.justify.cType == msgType    
+    //             && m.justify.viewNum == view
+    //             && ValidQC(m.justify)
+    //           ::
+    //             m.justify
+    // }
 
-    function getHighQC(msgs : set<Msg>) : Cert
-    ensures getHighQC(msgs).Cert?
-    ensures getHighQC(msgs).block.Block?
+    function getHighQC(msgs : set<Msg>) : (r : Cert)
+    ensures r.Cert?
+    ensures r.block.Block?
+    ensures forall m | m in msgs :: m.justify.Cert? ==> r.viewNum >= m.justify.viewNum
+    ensures exists m | m in msgs :: m.justify == r
 
     function getNewBlock(parent : Block) : (r : Block)
-    // requires parent.Block?
-    // ensures getNewBlock(parent).Block?
-    // ensures {:axiom}getNewBlock(parent).parent == parent
-    // ensures getNewBlock(parent).parent != getNewBlock(parent)
     ensures r.Block?
     ensures r.parent == parent
     ensures r.parent != r
@@ -176,9 +180,10 @@ module M_AuxilarilyFunc {
     function getAncestors(b : Block) : (r : seq<Block>)
     // requires b.Block?
     // ensures b.parent.Block? ==> |r| > 0 && r[|r|-1] == b
+    ensures |r| > 0 && r[|r|-1] == b
     ensures forall i | 0 <= i < |r| :: r[i].Block?
     ensures forall i, j | 0 <= i < j < |r| :: r[i] != r[j]  // None duplication
-    ensures forall i | 0 <= i < |r|-1 :: && r[i+1].Block? && r[i] == r[i+1].parent
+    ensures forall i | 0 <= i < |r|-1 :: r[i] == r[i+1].parent
     // {
     //     match (b.Block?) {
     //         case true =>
@@ -285,21 +290,43 @@ module M_AuxilarilyFunc {
                     :: vote.signer
     }
 
-    function splitMsgByBlocks(msgs : set<Msg>) : set<set<Msg>>
-    {
-        set m | 
-                && m <= msgs
-                && (forall e1, e2 | e1 in m && e2 in m
-                                    :: e1.block == e2.block)
-    }
+    function splitMsgByBlocks(msgs : set<Msg>) : (r : set<set<Msg>>)
+    ensures |msgs| > 0 ==> |r| > 0
+    ensures forall mset | mset in r :: mset <= msgs
+    ensures forall mset1, mset2 | mset1 in r && mset2 in r :: (mset1 != mset2) ==> |mset1 * mset2| == 0
+    ensures (forall mset | mset in r :: (forall m1, m2 | m1 in mset && m2 in mset :: m1.block == m2.block))
+    // {
+    //     set m | 
+    //             && m <= msgs
+    //             && (forall e1, e2 | e1 in m && e2 in m
+    //                                 :: e1.block == e2.block)
+    // }
+
+    function getMaxLengthSet<T>(sets : set<set<T>>) : (r : set<T>)
+    ensures r in sets
+    ensures forall s | s in sets :: |r| >= |s|
+
 
     function argmin<T>(s: set<T>, f: T -> int) : (ret : T)
     requires s != {}
     ensures forall x :: x in s ==> f(ret) <= f(x)
     ensures ret in s
     {
-        var min :| min in s && forall x :: x in s ==> f(min) <= f(x);
+        // var min :| min in s && forall x :: x in s ==> f(min) <= f(x);
+        // min
+        var min :| min in s;
         min
+        // var remaining := s - {min};
+        // if remaining != {}
+        // {
+        //     var y := argmin(remaining, f);
+        //     ret := if y <= min then y else min;
+        // }
+        // else
+        // {
+        //     assert remaining == {};
+        //     out := min;
+        // }
     }
 
     function argminView(s: set<Msg>) : (ret : Msg)

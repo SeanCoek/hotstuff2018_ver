@@ -1,9 +1,11 @@
 include "Type.dfy"
 include "Auxilarily.dfy"
+include "Axioms.dfy"
 
 module M_Replica {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
+    import opened M_Axiom
 
     /**
      *  Bookeeping variables for a replica
@@ -175,7 +177,6 @@ module M_Replica {
     }
 
     lemma LemmaValidationHoldsInPreparePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    // requires M_SpecTypes.All_Nodes != {}
     requires ValidReplicaState(r)
     requires UponPrepare(r, r', outMsg)
     ensures ValidReplicaState(r')
@@ -210,9 +211,25 @@ module M_Replica {
                 if leader == r.id {
                     assert ValidQC(r'.prepareQC);
                     assert r'.prepareQC.cType == MT_Prepare;
+                    assert exists m | m in r'.msgReceived
+                                            ::
+                                            && m.mType.MT_PreCommit?
+                                            && m.justify == r'.prepareQC;
                 }
                 else {
-                    assert ValidQC(r'.prepareQC);
+                    // assert r.msgReceived == r'.msgReceived;
+                    // assert ValidQC(r.prepareQC);
+                    // assert || r.prepareQC == r'.prepareQC
+                    //        || ValidQC(r'.prepareQC);
+                    // assert ValidQC(r'.prepareQC);
+                    if r.prepareQC.Cert? {
+                        assert ValidQC(r.prepareQC);
+                        assert ValidQC(r'.prepareQC);
+                    }
+                    if r.prepareQC.CertNone? {
+                        assert || r'.prepareQC.CertNone?
+                               || ValidQC(r'.prepareQC);
+                    }
                 }
         }
         
@@ -257,6 +274,7 @@ module M_Replica {
 
     predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
     requires ValidReplicaState(r)
+    // ensures ValidReplicaState(r')
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -304,6 +322,7 @@ module M_Replica {
 
     ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
+    ensures ValidReplicaState(r')
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -320,9 +339,7 @@ module M_Replica {
                 // What if these message contain different voted blocks?
                 // Split thess message by responding block, and get the group with the most elements.
                 var splitSets := splitMsgByBlocks(matchMsgs);
-                var maxSet :| && maxSet in splitSets
-                              && (forall sset | sset in splitSets
-                                        :: |maxSet| >= |sset|);
+                var maxSet := getMaxLengthSet(splitSets);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 then
                     var m :| m in maxSet;
@@ -338,11 +355,13 @@ module M_Replica {
             else    // Only doing leader's work
                 var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
                 var splitSets := splitMsgByBlocks(matchMsgs);
-                var maxSet :| && maxSet in splitSets
-                              && (forall sset | sset in splitSets
-                                        :: |maxSet| >= |sset|);
-                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                var maxSet := getMaxLengthSet(splitSets);
+                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|) && |maxSet| > 0
                 then
+                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.block == m2.block;
+                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.mType == m2.mType;
+                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.partialSig.signer != m2.partialSig.signer;
+                    assert forall m | m in maxSet :: m.mType == MT_Prepare;
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
@@ -361,13 +380,79 @@ module M_Replica {
                 var m :| m in matchQCs;
                 var sig := Signature(r.id, m.cType, m.viewNum, m.block);
                 var vote := Msg(MT_PreCommit, r.viewNum, m.block, CertNone, sig);
-                // var voteMsg := MsgWithRecipient(vote, leader);
                 && r' == r.(prepareQC := m)
                 && outMsg == {vote}
-            
+                && ValidQC(r'.prepareQC)
             else 
                 && r' == r
                 && outMsg == {}
+            
+    }
+
+    ghost predicate UponPreCommit2(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    ensures ValidReplicaState(r')
+    {
+        var leader := leader(r.viewNum);
+
+        var matchQCs := getMatchQC(r.msgReceived, MT_Prepare, r.viewNum);
+        var matchMsgs := getMatchMsg(r.msgReceived, MT_Prepare, r.viewNum);
+        var maxSetOfMatchMsgWithSameBlock := getMaxLengthSet(splitMsgByBlocks(matchMsgs));
+        if leader == r.id
+        then
+            match (|matchQCs| > 0 , |maxSetOfMatchMsgWithSameBlock| >= quorum(|M_SpecTypes.All_Nodes|)) {
+                case (true, true) =>    // Received matching QC and (n-f) votes
+                    // Vote for message with a valid prepare QC
+                    var qc :| qc in matchQCs;
+                    var sig := Signature(r.id, qc.cType, qc.viewNum, qc.block);
+                    var vote := Msg(MT_PreCommit, r.viewNum, qc.block, CertNone, sig);
+
+                    // Collect (n-f) votes, construct a prepare QC and sent it with a precommit message
+                    var m :| m in maxSetOfMatchMsgWithSameBlock;
+                    var sgns := ExtractSignatrues(maxSetOfMatchMsgWithSameBlock);
+                    var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+
+                    && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
+                    && r' == r.(prepareQC := qc)
+                    && outMsg == {vote, precommitMsg}
+
+                case (true, false) =>   // matched QC, but received insufficient votes
+                    var qc :| qc in matchQCs;
+                    var sig := Signature(r.id, qc.cType, qc.viewNum, qc.block);
+                    var vote := Msg(MT_PreCommit, r.viewNum, qc.block, CertNone, sig);
+
+                    && r' == r.(prepareQC := qc)
+                    && outMsg == {vote}
+
+                case (false, true) =>   // hasn't received matching QC, but got quorum of votes
+                    Axiom_Common_Constraints();
+                    var m :| m in maxSetOfMatchMsgWithSameBlock;
+                    var sgns := ExtractSignatrues(maxSetOfMatchMsgWithSameBlock);
+                    var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
+                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+
+                    && r' == r.(msgReceived := r.msgReceived + {precommitMsg})
+                    && outMsg == {precommitMsg}
+
+                case (false, false) =>  // No matching QC, and Not sufficient votes
+                    && r' == r
+                    && outMsg == {}
+            }
+
+        else
+            match |matchQCs| > 0 {
+                case true =>
+                    var qc :| qc in matchQCs;
+                    var sig := Signature(r.id, qc.cType, qc.viewNum, qc.block);
+                    var vote := Msg(MT_PreCommit, r.viewNum, qc.block, CertNone, sig);
+
+                    && r' == r.(prepareQC := qc)
+                    && outMsg == {vote}
+                case false =>
+                    && r' == r
+                    && outMsg == {}
+            }
     }
 
     ghost predicate UponCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -403,7 +488,6 @@ module M_Replica {
 
     ghost predicate UponDecide(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
-    requires M_SpecTypes.All_Nodes != {}
     {
         var leader := leader(r.viewNum);
         if leader == r.id // Leader
@@ -411,6 +495,7 @@ module M_Replica {
             var matchMsgs := getMatchMsg(r.msgReceived, MT_Commit, r.viewNum);
             if |matchMsgs| >= quorum(|M_SpecTypes.All_Nodes|)
             then
+                Axiom_Common_Constraints();
                 var m :| m in matchMsgs;
                 // forall m | m in matchMsgs
                 //         ::

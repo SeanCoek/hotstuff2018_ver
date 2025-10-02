@@ -103,12 +103,12 @@ module M_Thereom {
 
                 assert m1 in ss.msgSent by {
                     assert s1.msgReceived <= ss.msgSent by {
-                        LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                        LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                     }
                 }
                 assert m2 in ss.msgSent by {
                     assert s2.msgReceived <= ss.msgSent by {
-                        LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                        LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                     }
                 }
 
@@ -268,7 +268,7 @@ module M_Thereom {
             // Proof: qc1.viewNum != qc2.viewNum
             calc {
                 true;
-                ==> {LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
+                ==> {LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);}
                 ss.nodeStates[r].msgReceived <= ss.msgSent;
                 ==>
                 m1 in ss.msgSent && m2 in ss.msgSent;
@@ -286,7 +286,7 @@ module M_Thereom {
             // only if there exists a corresponding prepare-certificate. And here we have two valid 
             // commit-certifiacte (qc1, qc2).
             assert allPrepareQCMsg != {} by {
-                LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+                LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
                 assert ss.nodeStates[r].msgReceived <= ss.msgSent;
                 assert m2 in ss.msgSent;
                 assert ValidQC(m2.justify);
@@ -314,7 +314,7 @@ module M_Thereom {
             // Proof: Such matching messages must exist, cause there exists at least one message satisfying the predicate.
             // e.g. the corresponding prepare message for commit-certificate `qc2`
             assert matchingPrepareQCMsg != {} by {
-            LemmamsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
+            LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss);
             assert ss.nodeStates[r].msgReceived <= ss.msgSent;
             assert m2 in ss.msgSent;
             assert ValidQC(m2.justify);

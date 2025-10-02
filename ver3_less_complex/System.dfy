@@ -128,7 +128,7 @@ module M_System {
      */
     ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
     requires ValidSystemState(ss)
-    // ensures ValidSystemState(ss')
+    ensures ValidSystemState(ss')
     {
         || ss == ss'
         || (exists replica, msgReceivedByNodes, msgSentByNodes
