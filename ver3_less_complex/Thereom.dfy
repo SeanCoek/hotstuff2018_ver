@@ -52,7 +52,8 @@ module M_Thereom {
      *
     */
     lemma LemmaInvImpliesSafety(ss : SystemState)
-    requires ValidSystemState(ss)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures forall r1, r2 | 
                             && IsHonest(ss, r1)
                             && IsHonest(ss, r2)
@@ -67,6 +68,7 @@ module M_Thereom {
         {
             var s1, s2 := ss.nodeStates[r1], ss.nodeStates[r2];
             // Here we should prove: s1.bc <= s2.bc || s2.bc <= s1.bc
+            LemmaReachableStateIsValid(ss);
             assert ValidReplicaState(s1) && ValidReplicaState(s2);
             if s1.bc != [M_SpecTypes.Genesis_Block] && s2.bc != [M_SpecTypes.Genesis_Block] {
                 assert exists m1 | && m1 in s1.msgReceived
@@ -218,7 +220,8 @@ module M_Thereom {
      */
 
     lemma Thm_Two_Conflict_Block_Cant_Be_Both_Committed_By_Honest_Replica(ss : SystemState)
-    requires ValidSystemState(ss)
+    // requires ValidSystemState(ss)
+    requires Reachable(ss)
     ensures !(exists r, m1 : Msg, m2 : Msg :: && IsHonest(ss, r)
                                               && m1 in ss.nodeStates[r].msgReceived
                                               && m2 in ss.nodeStates[r].msgReceived
@@ -272,7 +275,9 @@ module M_Thereom {
                 ss.nodeStates[r].msgReceived <= ss.msgSent;
                 ==>
                 m1 in ss.msgSent && m2 in ss.msgSent;
-                ==> {LemmaViewDiffOnConflictCertificate(ss);}
+                ==> {
+                    LemmaReachableStateIsValid(ss);
+                    LemmaViewDiffOnConflictCertificate(ss);}
                 v1 != v2;
             }
 
@@ -351,6 +356,7 @@ module M_Thereom {
 
             // Proof: the prepare-certificate in qcsMsg could never be created in a valid system
             // i.e. The existence of qcsMsg will violated the precondition `ValidSystemState(ss)`
+            LemmaReachableStateIsValid(ss);
             LemmaVoteMsgInValidQCAlsoRecievedByVoter(ss);
             assert exists voteMsg : Msg :: 
                                           && voteMsg in ss.nodeStates[replica].msgReceived

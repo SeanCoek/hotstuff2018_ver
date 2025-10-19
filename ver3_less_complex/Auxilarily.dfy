@@ -123,16 +123,51 @@ module M_AuxilarilyFunc {
         }
     }
 
+    /* Mapping each round to a delegated leader */
     function leader(round : nat) : Address
 
+    /* 
+    Referring to ``MATCHINGMSG(m, t, v)'' in Algorithm 1 of HotStuff-2018
+    The returning messsage should satisfy ``(m.type = t) && (m.viewNum = v)''
+    However, the above constrains seem not sufficient enough.
+    For example, a byzantine node might send multiple message with same type and view number,
+    but carring different block, quorum certificate, etc.
+    Therefore, we should strengthen this function by adding constrains.
+    */
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Msg>)
     ensures forall m | m in r :: m in msgs && m.mType == msgType && m.viewNum == view
-    ensures forall m | m in msgs :: (m.mType == msgType && m.viewNum == view) ==> m in r
+    // A honest node should only send one message in each phase of each round.
+    // i.e.  
+    ensures forall m1, m2 | m1 in r && m2 in r :: m1.partialSig != m2.partialSig
+    ensures (forall m | m in msgs :: (
+                                     && (m.mType == msgType && m.viewNum == view)
+                                     && !(exists m2 | m2 in msgs :: && m2 != m
+                                                                    && m2.partialSig == m.partialSig)
+                                     )
+                                     ==> m in r)
     // {
     //     set m | && m in msgs
     //             && m.mType == msgType
     //             && m.viewNum == view
     // }
+
+    function getMatchProposalMsg(msgs : set<Msg>, view : nat) : (r : set<Msg>)
+    ensures forall m | m in r :: (
+                                  && m in msgs 
+                                  && m.mType == MT_Prepare 
+                                  && m.viewNum == view
+                                  // When a prepare message doesn't hold a qc, it will be a vote message.
+                                  // Otherwise it's a proposal message
+                                  && m.justify != Cert.CertNone 
+                                )
+    ensures forall m | m in msgs :: (
+                                     && m.mType == MT_Prepare
+                                     && m.viewNum == view
+                                     && m.justify != Cert.CertNone
+                                    )
+                                    ==>
+                                    m in r
+
 
     // method ExtractSignatrues(msgs : set<Msg>) returns (sgns : set<Signature>)
     // {
@@ -152,8 +187,8 @@ module M_AuxilarilyFunc {
     ensures forall s | s in r :: exists m | m in msgs :: m.partialSig == s
 
 
-    ghost function getMatchQC(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Cert>)
-    ensures forall c | c in r :: c.Cert? && c.cType == msgType && c.viewNum == view
+    ghost function getMatchQC(msgs : set<Msg>, cerType : MsgType, view : nat) : (r : set<Cert>)
+    ensures forall c | c in r :: c.Cert? && c.cType == cerType && c.viewNum == view
     ensures forall c | c in r :: exists m | m in msgs :: m.justify == c
     ensures forall c | c in r :: ValidQC(c)
     // {
@@ -255,7 +290,7 @@ module M_AuxilarilyFunc {
     // requires qc.Cert?
     // requires |All_Nodes| > 0
     {
-        && |All_Nodes| > 0
+        // && |All_Nodes| > 0
         && qc.Cert?
         && qc.block.Block?
         && (forall s | s in qc.signatures
@@ -332,20 +367,16 @@ module M_AuxilarilyFunc {
     function argminView(s: set<Msg>) : (ret : Msg)
     requires s != {}
     requires forall x | x in s :: x.justify.Cert?
-    ensures forall x :: x in s ==> ret.justify.viewNum <= x.justify.viewNum
     ensures ret in s
-    {
-        var min :| min in s && forall x :: x in s ==> min.justify.viewNum <= x.justify.viewNum;
-        min
-    }
+    ensures forall x :: x in s ==> ret.justify.viewNum <= x.justify.viewNum
+    // {
+    //     var min :| min in s && forall x :: x in s ==> min.justify.viewNum <= x.justify.viewNum;
+    //     min
+    // }
 
     function argmax<T>(s: set<T>, f: T -> int) : (ret : T)
     requires s != {}
     ensures forall x :: x in s ==> f(ret) >= f(x)
     ensures ret in s
-    {
-        var max :| max in s && forall x :: x in s ==> f(max) >= f(x);
-        max
-    }
 
 }

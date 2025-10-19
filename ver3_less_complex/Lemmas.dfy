@@ -17,7 +17,7 @@ module M_Lemma {
     // ensures All_Nodes != {}
 
     lemma{:axiom} NoOuterClient()
-    ensures forall cert : Signature :: cert.signer in All_Nodes
+    ensures forall cert : Signature :: cert.Signature? ==> cert.signer in All_Nodes
 
     lemma LemmaExistVoteMsgIfCertificateFormed(ss : SystemState)
     requires ValidSystemState(ss)
