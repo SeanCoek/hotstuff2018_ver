@@ -121,7 +121,7 @@ module M_Replica {
                 && s[0] == replicaWithNewMsgReceived
                 && s[|s|-1] == r'
                 && (forall i | 0 <= i < |s| - 1 ::
-                    assert ValidReplicaState(s[i]);
+                    && ValidReplicaState(s[i])
                     && ReplicaNextSubStep(s[i], s[i+1], o[i])
                 )
                 && outMsg == setUnionOnSeq(o)
@@ -159,9 +159,15 @@ module M_Replica {
         
     } 
 
-    lemma LemmaTestValidationOfTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    lemma LemmaValidationHoldForReplicaTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
-    // requires UponNextView(r, r', outMsg)     
+    requires (|| UponNextView(r, r', outMsg)
+              || UponTimeOut(r, r', outMsg)
+              || UponPrepare(r, r', outMsg)
+              || UponPreCommit(r, r', outMsg)
+              || UponCommit(r, r', outMsg)
+              || UponDecide(r, r', outMsg)
+              ) 
     // requires UponTimeOut(r, r', outMsg)     
     // requires UponPrepare(r, r', outMsg)      
     // requires UponPreCommit(r, r', outMsg)    
@@ -348,9 +354,29 @@ module M_Replica {
                 var maxSet := getMaxLengthSet(splitSets);
 
                 var matchQCs := getMatchQC(r.msgReceived, MT_Commit, r.viewNum);
+                // assert |matchQCs| <= 1;
                 assert r.msgReceived <= r'.msgReceived;
                 if |matchQCs| > 0 {
-                    
+                    // assert |matchQCs| == 1;
+                    var m_qc :| m_qc in matchQCs;
+                    var match_msg :| && match_msg in r.msgReceived
+                                     && match_msg.justify == m_qc;
+                    // assert matchQCs <= r'.msgReceived;
+                    var ancestors := getAncestors(m_qc.block);
+                    // if |ancestors| <= |r.bc| {
+                    //     assert r' == r;
+                    // }
+                    assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+                            || (exists m | && m in r'.msgReceived
+                                        // && m.mType.MT_Decide?
+                                        && m.justify.Cert?
+                                        && m.justify.cType.MT_Commit?
+                                        && ValidQC(m.justify)
+                                        // && m.justify.block.Block?
+                                        ::
+                                        r'.bc <= getAncestors(m.justify.block)
+                                )
+                            );
                 } else {
                     assert r' == r;
                 }
@@ -652,11 +678,11 @@ module M_Replica {
                     && var ancestors := getAncestors(m_qc.block);
                     && (
                         || (
-                            && |ancestors| > |r.bc|
+                            && r.bc < ancestors
                             && r' == r.(bc := r.bc + ancestors[|r.bc|..])
                             )
                         || (
-                            && |ancestors| <= |r.bc|
+                            // && |ancestors| <= |r.bc|
                             && r' == r
                             )
                     )
@@ -664,11 +690,11 @@ module M_Replica {
                     && var ancestors := getAncestors(m_qc.block);
                     && (
                         || (
-                            && |ancestors| > |r.bc|
+                            && r.bc < ancestors
                             && r' == r.(bc := r.bc + ancestors[|r.bc|..])
                             )
                         || (
-                            && |ancestors| <= |r.bc|
+                            // && |ancestors| <= |r.bc|
                             && r' == r
                             )
                     )
@@ -690,18 +716,17 @@ module M_Replica {
             if |matchQCs| > 0
             then
                 var m_qc :| m_qc in matchQCs;
-                && var ancestors := getAncestors(m_qc.block);
-                    && (
-                        || (
-                            && |ancestors| > |r.bc|
-                            && r' == r.(bc := r.bc + ancestors[|r.bc|..])
-                            )
-                        || (
-                            && |ancestors| <= |r.bc|
-                            && r' == r
-                            )
-                    )
-                    && outMsg == {}
+                var ancestors := getAncestors(m_qc.block);
+                && (
+                    || (
+                        && r.bc < ancestors
+                        && r' == r.(bc := r.bc + ancestors[|r.bc|..])
+                        )
+                    || (
+                        && r' == r
+                        )
+                )
+                && outMsg == {}
             else
                 && r' == r
                 && outMsg == {}

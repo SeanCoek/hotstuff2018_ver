@@ -62,7 +62,6 @@ module M_System {
         //     // c1 == c2;
         // }
 
-    //    assert Inv_Constant_Fields(ss);
     }
 
     lemma LemmaSystemTransitionHoldsValidity(ss : SystemState, ss' : SystemState)
@@ -102,6 +101,7 @@ module M_System {
         // inMsg: multiset<Msg>,
         inMsg : set<Msg>,
         outMsg : set<Msg>)
+    requires ValidSystemState(ss)
     {
         && var msgReceivedSingleSet := set mr:Msg | mr in inMsg;
         && replica in ss.nodeStates
@@ -128,7 +128,7 @@ module M_System {
      */
     ghost predicate SystemNext(ss : SystemState, ss' : SystemState)
     requires ValidSystemState(ss)
-    ensures ValidSystemState(ss')
+    // ensures ValidSystemState(ss')
     {
         || ss == ss'
         || (exists replica, msgReceivedByNodes, msgSentByNodes

@@ -64,7 +64,7 @@ module M_Lemma {
     }
 
     /**
-     * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
+     * Lemma: for 2 valid certificate, if they are conflict, then their coressponding view number should be different
      */
     lemma LemmaViewDiffOnConflictCertificatePrepare(ss : SystemState)
     // requires All_Nodes != {}
@@ -127,7 +127,7 @@ module M_Lemma {
 
     
     /**
-     * Lemma: for 2 valid certificate, if they are not conflict, then their coressponding view number should be different
+     * Lemma: for 2 valid certificate, if they are conflict, then their coressponding view number should be different
      */
     lemma LemmaViewDiffOnConflictCertificate(ss : SystemState)
     requires ValidSystemState(ss)
@@ -194,9 +194,17 @@ module M_Lemma {
                              && msgs == ss.nodeStates[r].msgReceived
                           ::
                              && msgs <= ss.msgSent
-    // {
-
-    // }
+    {
+        forall r, msgs | && IsHonest(ss, r)
+                         && msgs == ss.nodeStates[r].msgReceived
+        ensures msgs <= ss.msgSent {
+            if SystemInit(ss) {
+                assert msgs <= ss.msgSent;
+            } else {
+                
+            }
+        }
+    }
 
     lemma LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss : SystemState)
     // requires ValidSystemState(ss)
