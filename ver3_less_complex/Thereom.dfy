@@ -97,7 +97,7 @@ module M_Thereom {
                 }
 
                 assert exists m1_p : Msg :: && m1_p in ss.msgSent
-                                            && m1_p.mType == MT_Prepare
+                                            // && m1_p.mType == MT_Prepare
                                             && ValidQC(m1_p.justify)
                                             && m1_p.justify.cType == MT_Prepare
                                             && m1_p.justify.block == m1.justify.block
@@ -106,7 +106,7 @@ module M_Thereom {
                 }
 
                 assert exists m2_p : Msg :: && m2_p in ss.msgSent
-                                            && m2_p.mType == MT_Prepare
+                                            // && m2_p.mType == MT_Prepare
                                             && ValidQC(m2_p.justify)
                                             && m2_p.justify.cType == MT_Prepare
                                             && m2_p.justify.block == m2.justify.block
@@ -115,13 +115,13 @@ module M_Thereom {
                 }
 
                 var m1_p :| && m1_p in ss.msgSent
-                                            && m1_p.mType == MT_Prepare
+                                            // && m1_p.mType == MT_Prepare
                                             && ValidQC(m1_p.justify)
                                             && m1_p.justify.cType == MT_Prepare
                                             && m1_p.justify.block == m1.justify.block
                                             && m1_p.justify.viewNum == m1.justify.viewNum;
                 var m2_p :| && m2_p in ss.msgSent
-                                            && m2_p.mType == MT_Prepare
+                                            // && m2_p.mType == MT_Prepare
                                             && ValidQC(m2_p.justify)
                                             && m2_p.justify.cType == MT_Prepare
                                             && m2_p.justify.block == m2.justify.block

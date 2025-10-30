@@ -45,6 +45,7 @@ module M_System {
     {
         && Inv_Node_Constraint(ss)
         && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
+        && forall replica | IsHonest(ss, replica) :: ss.nodeStates[replica].msgReceived <= ss.msgSent
     }
 
     lemma LemmaInitialSystemStateHoldsValidity(ss : SystemState)
@@ -70,6 +71,48 @@ module M_System {
     ensures ValidSystemState(ss')
     {
         // Prove a valid state after system transition will still be valid
+        if ss == ss' {
+
+        }
+        else {
+            // forall replica | IsHonest(ss', replica)
+            // ensures ValidReplicaState(ss'.nodeStates[replica]) {
+            // }
+            // assert forall replica | IsHonest(ss', replica) :: ss'.nodeStates[replica].msgReceived <= ss'.msgSent;
+        }
+    }
+
+    lemma LemmaSystemNextByOneReplicaIsValid(
+        ss : SystemState, 
+        ss' : SystemState, 
+        replica : Address,
+        inMsg : set<Msg>,
+        outMsg : set<Msg>)
+    requires ValidSystemState(ss)
+    requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
+    ensures ValidSystemState(ss')
+    {
+        var r := ss.nodeStates[replica];
+        var r' := ss'.nodeStates[replica];
+        if IsHonest(ss, replica) {
+            var msgReceivedSingleSet := set mr | mr in inMsg;
+            LemmaReplicaNextIsValid(r,
+                                msgReceivedSingleSet,
+                                r',
+                                outMsg);
+            assert ValidReplicaState(r');
+
+            // forall r' | r' in ss.nodeStates.Keys - {replica}
+            // ensures ValidReplicaState(ss'.nodeStates[r']);
+            assert ReplicaNext(r, msgReceivedSingleSet, r', outMsg);
+            assert ss'.nodeStates[replica].msgReceived >= ss.nodeStates[replica].msgReceived + msgReceivedSingleSet by {
+                LemmaReplicaNextChangeReceivedMsg(ss.nodeStates[replica], msgReceivedSingleSet, ss'.nodeStates[replica], outMsg);
+            }
+            // assert ss'.nodeStates[replica].msgReceived <= ss'.msgSent;
+        }
+        else {
+            
+        }
     }
 
     /**

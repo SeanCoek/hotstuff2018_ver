@@ -43,22 +43,17 @@ module M_Replica {
 
     lemma LemmaInitReplicaIsValid(r : ReplicaState)
     requires ReplicaInit(r, r.id)
-    requires M_SpecTypes.All_Nodes != {}
     ensures ValidReplicaState(r)
     {
-        
-        assert Inv_Blockchain_Inner_Consistency(r.bc);
-        assert r.commitQC.CertNone?;
-        assert r.prepareQC.CertNone?;
-        assert r.bc == [M_SpecTypes.Genesis_Block];
+        // assert Inv_Blockchain_Inner_Consistency(r.bc);
+        // assert r.commitQC.CertNone?;
+        // assert r.prepareQC.CertNone?;
+        // assert r.bc == [M_SpecTypes.Genesis_Block];
     }
 
     lemma LemmaReplicaNextSubIsValid(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires M_SpecTypes.All_Nodes != {}
     requires ValidReplicaState(r)
     requires ReplicaNextSubStep(r, r', outMsg)
-    // ensures forall inMsg, outMsg | ReplicaNext(r, inMsg, r', outMsg)
-    //                             :: ValidReplicaState(r')
     ensures ValidReplicaState(r')
     {
         
@@ -87,6 +82,79 @@ module M_Replica {
             }
         }
     }
+
+    lemma LemmaReplicaNextIsValid(r : ReplicaState, inMsg : set<Msg>, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires ReplicaNext(r, inMsg, r', outMsg)
+    ensures ValidReplicaState(r')
+    {
+        var allMsgReceived := r.msgReceived + inMsg;
+        var replicaWithNewMsgReceived := r.(
+            msgReceived := allMsgReceived
+        );
+        var s : seq<ReplicaState>, o : seq<set<Msg>> :|
+                && |s| > 2
+                && |o| == |s| - 1
+                && s[0] == replicaWithNewMsgReceived
+                && s[|s|-1] == r'
+                && (forall i | 0 <= i < |s| - 1 ::
+                    && ValidReplicaState(s[i])
+                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
+                )
+                && outMsg == setUnionOnSeq(o);
+        assert ValidReplicaState(r') by {
+            LemmaReplicaNextSubIsValid(s[|s|-2], s[|s|-1], outMsg);
+        }
+        
+    }
+
+    lemma LemmaReplicaNextChangeReceivedMsg(
+        r : ReplicaState,
+        inMsg : set<Msg>,
+        r' : ReplicaState,
+        outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires ReplicaNext(r, inMsg, r', outMsg)
+    ensures r.msgReceived + inMsg <= r'.msgReceived
+    {
+        var allMsgReceived := r.msgReceived + inMsg;
+        var replicaWithNewMsgReceived := r.(
+            msgReceived := allMsgReceived
+        );
+        var s : seq<ReplicaState>, o : seq<set<Msg>> :|
+                && |s| > 2
+                && |o| == |s| - 1
+                && s[0] == replicaWithNewMsgReceived
+                && s[|s|-1] == r'
+                && (forall i | 0 <= i < |s| - 1 ::
+                    && ValidReplicaState(s[i])
+                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
+                )
+                && outMsg == setUnionOnSeq(o);
+        // assert s[0].msgReceived <= r.msgReceived + inMsg;
+        assert s[0].msgReceived <= s[|s|-1].msgReceived by {
+            assert s[0].msgReceived <= s[|s|-2].msgReceived;
+            LemmaReplicaNextSubStepHoldsMsgSubsetRelation(s[0], s[1], o[0]);
+            LemmaReplicaNextSubStepHoldsMsgSubsetRelation(s[|s|-2], s[|s|-1], o[|o|-1]);
+        }
+    }
+
+    lemma LemmaSubsetTransitive(a : set, b : set, c : set)
+    requires a <= b && b <= c
+    ensures a <= c
+    {
+
+    }
+
+    lemma LemmaReplicaNextSubStepHoldsMsgSubsetRelation(
+        r : ReplicaState,
+        r' : ReplicaState,
+        outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires ReplicaNextSubStep(r, r', outMsg)
+    ensures r.msgReceived <= r'.msgReceived
+    {}
+
 
     predicate Inv_Node_Constraint()
     {   

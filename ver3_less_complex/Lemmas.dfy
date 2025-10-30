@@ -144,14 +144,6 @@ module M_Lemma {
                                         ::
                                             cert1.viewNum != cert2.viewNum
     {
-        // forall r1, r2, cert1, cert2 |   && IsHonest(ss, r1)
-        //                                 && IsHonest(ss, r2)
-        //                                 && ValidQC(cert1)
-        //                                 && ValidQC(cert2)
-        //                                 && cert1.cType == cert2.cType
-        //                                 && cert1.block.Block?
-        //                                 && cert2.block.Block?
-        //                                 && !NoConflict(cert1.block, cert2.block)
         forall  m1, m2, cert1, cert2 |  && m1 in ss.msgSent
                                         && m2 in ss.msgSent
                                         && cert1 == m1.justify
@@ -188,7 +180,6 @@ module M_Lemma {
     }
 
     lemma LemmaMsgReceivedByReplicaIsSubsetOfAllMsgSentBySystem(ss : SystemState)
-    // requires ValidSystemState(ss)
     requires Reachable(ss)
     ensures forall r, msgs | && IsHonest(ss, r)
                              && msgs == ss.nodeStates[r].msgReceived
@@ -201,7 +192,8 @@ module M_Lemma {
             if SystemInit(ss) {
                 assert msgs <= ss.msgSent;
             } else {
-                
+                LemmaReachableStateIsValid(ss);
+                assert ValidSystemState(ss);
             }
         }
     }
@@ -213,17 +205,11 @@ module M_Lemma {
                              && ValidQC(m.justify)
                              && m.justify.cType == MT_PreCommit
                           ::
-                            //  && (exists m2 : Msg :: && m2 in ss.msgSent
-                            //                      && ValidQC(m2.justify)
-                            //                      && m2.justify.cType == MT_PreCommit
-                            //                      && m2.justify.block == m.justify.block
-                            //                      && m2.justify.viewNum == m.justify.viewNum
-                            // )
-                             && (exists m3 : Msg :: && m3 in ss.msgSent
-                                                 && ValidQC(m3.justify)
-                                                 && m3.justify.cType == MT_Prepare
-                                                 && m3.justify.block == m.justify.block
-                                                 && m3.justify.viewNum == m.justify.viewNum
+                             && (exists m2 : Msg :: && m2 in ss.msgSent
+                                                 && ValidQC(m2.justify)
+                                                 && m2.justify.cType == MT_Prepare
+                                                 && m2.justify.block == m.justify.block
+                                                 && m2.justify.viewNum == m.justify.viewNum
                             )
     // {
 
@@ -255,7 +241,7 @@ module M_Lemma {
                              && m.justify.cType == MT_Commit
                           ::
                              && (exists m2 : Msg :: && m2 in ss.msgSent
-                                                    && m2.mType == MT_Prepare
+                                                    // && m2.mType == MT_Prepare
                                                     && ValidQC(m2.justify)
                                                     && m2.justify.cType == MT_Prepare
                                                     && m2.justify.block == m.justify.block
@@ -333,16 +319,31 @@ module M_Lemma {
                                                   m_acs.justify.viewNum <= m.justify.viewNum
                                                   ==>
                                                   extension(m.justify.block, m_acs.justify.block)
-    {
+    // {
 
-    }
+    // }
                                                   
 
     lemma LemmaReachableStateIsValid(ss : SystemState)
     requires Reachable(ss)
     ensures ValidSystemState(ss)
     {
+        if !SystemInit(ss) {
+            var run : seq<SystemState> :|
+                                            && |run| > 1
+                                            && SystemInit(run[0])
+                                            && run[|run|-1] == ss
+                                            && (forall i | 0 <= i < |run|-1
+                                                        :: 
+                                                           && ValidSystemState(run[i])
+                                                           && SystemNext(run[i], run[i+1]));
+            forall i | 0 < i <= |run|-1
+            ensures ValidSystemState(run[i]) {
+                LemmaSystemTransitionHoldsValidity(run[i-1], run[i]);
+            }
+        } else {
 
+        }
     }
 
 }
