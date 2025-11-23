@@ -18,6 +18,13 @@ module M_AuxilarilyFunc {
             sets[0] + setUnionOnSeq(sets[1..])
     }
 
+    lemma LemmaElementInSetUnionOnSeqMustExistInOneOfTheSets<T>(e : T, sets : seq<set<T>>)
+    requires e in setUnionOnSeq(sets)
+    ensures exists i | 0 <= i < |sets|:: e in sets[i]
+    {
+
+    }
+
     /**
     * @returns The maximum number of Byzantine validators allowed in a network
     *          of `setSize` validators
@@ -135,7 +142,7 @@ module M_AuxilarilyFunc {
     Therefore, we should strengthen this function by adding constrains.
     */
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Msg>)
-    ensures forall m | m in r :: m in msgs && m.mType == msgType && m.viewNum == view
+    ensures forall m | m in r :: m in msgs && ValidMsg(m) && m.mType == msgType && m.viewNum == view
     // A honest node should only send one message in each phase of each round.
     // i.e.  
     ensures forall m1, m2 | m1 in r && m2 in r :: m1.partialSig != m2.partialSig
@@ -188,18 +195,14 @@ module M_AuxilarilyFunc {
 
 
     ghost function getMatchQC(msgs : set<Msg>, cerType : MsgType, view : nat) : (r : set<Cert>)
-    ensures forall c | c in r :: c.Cert? && c.cType == cerType && c.viewNum == view
-    ensures forall c | c in r :: exists m | m in msgs :: m.justify == c
-    ensures forall c | c in r :: ValidQC(c)
-    // {
-    //     set m | && m in msgs 
-    //             && m.justify.Cert?
-    //             && m.justify.cType == msgType    
-    //             && m.justify.viewNum == view
-    //             && ValidQC(m.justify)
-    //           ::
-    //             m.justify
-    // }
+    ensures forall c | c in r :: ValidQC(c) && c.cType == cerType && c.viewNum == view
+    ensures forall c | c in r :: exists m | m in msgs && ValidMsg(m) :: m.justify == c
+    ensures forall m | m in msgs && ValidMsg(m) :: (&& ValidQC(m.justify)
+                                                    && m.justify.cType == cerType
+                                                    && m.justify.viewNum == view
+                                                    ==>
+                                                    m.justify in r
+    )
 
     function getHighQC(msgs : set<Msg>) : (r : Cert)
     ensures r.Cert?
@@ -302,7 +305,7 @@ module M_AuxilarilyFunc {
             )
         && (forall s1, s2 | && s1 in qc.signatures 
                             && s2 in qc.signatures
-                            && s1 != s2
+                            // && s1 != s2
                          :: s1.signer != s2.signer
                          )
         && |qc.signatures| >= quorum(|All_Nodes|)
@@ -346,11 +349,11 @@ module M_AuxilarilyFunc {
     requires s != {}
     ensures forall x :: x in s ==> f(ret) <= f(x)
     ensures ret in s
-    {
+    // {
         // var min :| min in s && forall x :: x in s ==> f(min) <= f(x);
         // min
-        var min :| min in s;
-        min
+        // var min :| min in s;
+        // min
         // var remaining := s - {min};
         // if remaining != {}
         // {
@@ -362,7 +365,7 @@ module M_AuxilarilyFunc {
         //     assert remaining == {};
         //     out := min;
         // }
-    }
+    // }
 
     function argminView(s: set<Msg>) : (ret : Msg)
     requires s != {}
@@ -379,4 +382,114 @@ module M_AuxilarilyFunc {
     ensures forall x :: x in s ==> f(ret) >= f(x)
     ensures ret in s
 
+    predicate msgWithValidQC(m : Msg, cType : MsgType)
+    {
+        && ValidQC(m.justify)
+        && m.justify.cType == cType
+    }
+
+    function ValidMsg(m : Msg) : bool
+    {
+        || (
+            && m.mType.MT_NewView?
+            && ValidQC(m.justify)
+            && m.justify.cType.MT_Prepare?
+        )
+        || (
+            && m.mType.MT_Prepare?
+            && (
+                ||
+                // Proposal
+                (   && m.partialSig.SigNone?
+                    && ValidQC(m.justify)
+                    && m.justify.cType.MT_Prepare?
+                    && m.viewNum > m.justify.viewNum
+                    )
+                // Prepare Vote
+                || 
+                (   && m.partialSig.Signature?
+                    && m.partialSig.mType.MT_Prepare?
+                    && m.partialSig.block == m.block
+                    && m.partialSig.viewNum == m.viewNum
+                    )
+            )
+        )
+        || (
+            && m.mType.MT_PreCommit?
+            && (
+                ||
+                (   && m.partialSig.SigNone?
+                    && ValidQC(m.justify)
+                    && m.justify.cType.MT_Prepare?
+                    )
+                // PreCommit Vote  
+                || 
+                (   && m.partialSig.Signature?
+                    && m.partialSig.mType.MT_PreCommit?
+                    && m.partialSig.block == m.block
+                    && m.partialSig.viewNum == m.viewNum
+                )
+            )
+        )
+        || (
+            && m.mType.MT_Commit?
+            && (
+                ||
+                (   && m.partialSig.SigNone?
+                    && ValidQC(m.justify)
+                    && m.justify.cType.MT_PreCommit?
+                    )
+                // Commit Vote  
+                || 
+                (   && m.partialSig.Signature?
+                    && m.partialSig.mType.MT_Commit?
+                    && m.partialSig.block == m.block
+                    && m.partialSig.viewNum == m.viewNum
+                )
+            )
+        )
+        || (
+            && m.mType.MT_Decide?
+            && (
+                && m.partialSig.SigNone?
+                && ValidQC(m.justify)
+                && m.justify.cType.MT_Commit?
+            )
+        )
+    }
+
+    predicate correspondingQC(qc : Cert, qc' : Cert)
+    requires ValidQC(qc) && ValidQC(qc')
+    {
+        && qc.block == qc'.block
+        && qc.viewNum == qc'.viewNum
+    }
+
+    predicate corrVoteMsg(sig : Signature, vote : Msg)
+    requires sig.Signature?
+    {
+        && sig.mType == vote.mType
+        && sig.viewNum == vote.viewNum
+        && sig.block == vote.block
+    }
+
+    function mapSeq<A, B>(s : seq<A>, f: A->B) : (r : seq<B>)
+    ensures |r| == |s|
+    ensures forall i | 0 <= i < |s| :: r[i] == f(s[i])
+    {
+        if |s| == 0
+        then []
+        else [f(s[0])] + mapSeq(s[1..], f)
+    }
+
+    function buildMsg(mType : MsgType, node : Block, qc : Cert, viewNum : nat) : (m : Msg)
+    {
+        Msg(mType, viewNum, node, qc, SigNone)
+    }
+
+    function buildVoteMsg(mType : MsgType, node : Block, qc : Cert, viewNum : nat, signer : Address) : (m : Msg)
+    {
+        Msg(mType, viewNum, node, qc,
+            Signature(signer, mType, viewNum, node))
+    }
 }

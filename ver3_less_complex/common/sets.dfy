@@ -85,6 +85,11 @@ module M_Set {
         Set.LemmaSubsetEquality(x, y);
     }
 
+    lemma LemmaSubsetTransitive<T> (x : set<T>, y : set<T>, z : set<T>)
+    requires x <= y && y <= z
+    ensures x <= z
+    {}
+
     lemma LemmaTest<T> (x: set<T>, y: set<T>)
     requires x < y
     ensures |x| < |y|

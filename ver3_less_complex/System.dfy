@@ -46,22 +46,16 @@ module M_System {
         && Inv_Node_Constraint(ss)
         && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
         && forall replica | IsHonest(ss, replica) :: ss.nodeStates[replica].msgReceived <= ss.msgSent
+        && forall replica | replica in ss.nodeStates.Keys :: ss.nodeStates[replica].msgSent <= ss.msgSent
+        // && forall m | m in ss.msgSent
+        //            :: (exists r | r in ss.nodeStates.Keys
+        //                        :: m in ss.nodeStates[r].msgSent)
     }
 
     lemma LemmaInitialSystemStateHoldsValidity(ss : SystemState)
     requires SystemInit(ss)
     ensures ValidSystemState(ss)
     {
-        // Replica initialization would not change configuration
-        // calc {
-        //     forall r | r in ss.nodeStates
-        //                     :: 
-        //                     && ReplicaInit(ss.nodeStates[r], r)
-        //                     && ReplicaInit(ss.nodeStates[r], r)
-        //     ;
-        //     // ==>
-        //     // c1 == c2;
-        // }
 
     }
 
@@ -72,15 +66,39 @@ module M_System {
     {
         // Prove a valid state after system transition will still be valid
         if ss == ss' {
+            assert ValidSystemState(ss');
+        }
+        else {
+            forall replica, msgReceivedByNodes, msgSentByNodes
+                    | && msgReceivedByNodes <= ss.msgSent
+                      && SystemNextByOneReplica(ss, ss', replica, msgReceivedByNodes, msgSentByNodes)
+            ensures ValidSystemState(ss') {
+                LemmaSystemNextByOneReplicaIsValid(ss, ss', replica, msgReceivedByNodes, msgSentByNodes);
+            }
+        }
+    }
+
+    lemma LemmaReplicaMsgReceivedMustBeSent(
+        ss : SystemState,
+        ss' : SystemState
+    )
+    requires ValidSystemState(ss)
+    requires SystemNext(ss, ss')
+    ensures forall r | IsHonest(ss', r) :: ss'.nodeStates[r].msgReceived <= ss'.msgSent
+    {
+        if ss == ss' {
 
         }
         else {
-            // forall replica | IsHonest(ss', replica)
-            // ensures ValidReplicaState(ss'.nodeStates[replica]) {
-            // }
-            // assert forall replica | IsHonest(ss', replica) :: ss'.nodeStates[replica].msgReceived <= ss'.msgSent;
+            var replica, msgReceivedByNodes, msgSentByNodes
+                   :|   && msgReceivedByNodes <= ss.msgSent
+                        && SystemNextByOneReplica(ss, ss', replica, msgReceivedByNodes, msgSentByNodes);
+            LemmaSystemNextByOneReplicaIsValid(ss, ss', replica, msgReceivedByNodes, msgSentByNodes);
         }
     }
+
+    lemma LemmaSystemMsgSentIsUnionOfAllMsgSentInReplicaNext()
+
 
     lemma LemmaSystemNextByOneReplicaIsValid(
         ss : SystemState, 
@@ -89,6 +107,7 @@ module M_System {
         inMsg : set<Msg>,
         outMsg : set<Msg>)
     requires ValidSystemState(ss)
+    requires inMsg <= ss.msgSent
     requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
     ensures ValidSystemState(ss')
     {
@@ -102,16 +121,29 @@ module M_System {
                                 outMsg);
             assert ValidReplicaState(r');
 
-            // forall r' | r' in ss.nodeStates.Keys - {replica}
-            // ensures ValidReplicaState(ss'.nodeStates[r']);
             assert ReplicaNext(r, msgReceivedSingleSet, r', outMsg);
-            assert ss'.nodeStates[replica].msgReceived >= ss.nodeStates[replica].msgReceived + msgReceivedSingleSet by {
-                LemmaReplicaNextChangeReceivedMsg(ss.nodeStates[replica], msgReceivedSingleSet, ss'.nodeStates[replica], outMsg);
+            assert r'.msgReceived >= r.msgReceived + msgReceivedSingleSet by {
+                LemmaMsgRelationInReplicaNext(r, 
+                                                msgReceivedSingleSet, 
+                                                r', 
+                                                outMsg);
             }
-            // assert ss'.nodeStates[replica].msgReceived <= ss'.msgSent;
+            assert r'.msgReceived <= ss'.msgSent by {
+                assert ss'.msgSent == ss.msgSent + outMsg;
+                LemmaMsgRelationInReplicaNext(r, msgReceivedSingleSet, r', outMsg);
+                assert r'.msgReceived - r.msgReceived <= outMsg;
+            }
+            assert r'.msgSent <= ss'.msgSent by {
+                assert ss'.msgSent == ss.msgSent + outMsg;
+                LemmaMsgRelationInReplicaNext(r, msgReceivedSingleSet, r', outMsg);
+                assert r'.msgSent == r.msgSent + outMsg;
+                assert r.msgSent <= ss.msgSent by {
+                    assert ValidSystemState(ss);
+                }
+            }
         }
         else {
-            
+            // assert ValidSystemState(ss');
         }
     }
 
@@ -122,7 +154,7 @@ module M_System {
     // ensures ValidSystemState(ss)
     {
         && Inv_Node_Constraint(ss)
-        // && ValidSystemState(ss)
+        && ss.msgSent == {}
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)
@@ -147,7 +179,7 @@ module M_System {
     requires ValidSystemState(ss)
     {
         && var msgReceivedSingleSet := set mr:Msg | mr in inMsg;
-        && replica in ss.nodeStates
+        && replica in ss.nodeStates.Keys
         // fixed set of replica
         && ss.nodeStates.Keys == ss'.nodeStates.Keys
         // separate different actions by replica's honesty
@@ -157,8 +189,15 @@ module M_System {
                 && ss'.adversary == ss.adversary
                 && ReplicaNext(ss.nodeStates[replica], msgReceivedSingleSet, ss'.nodeStates[replica], outMsg)
             else
-                && ss'.nodeStates == ss.nodeStates
+                // && ss'.nodeStates == ss.nodeStates
+                // assert replica in ss.adversary.byz_nodes;
                 && AdversaryNext(ss.adversary, msgReceivedSingleSet, ss'.adversary, outMsg)
+                && (forall r | r in ss.adversary.byz_nodes
+                            :: && ss'.nodeStates[r].msgReceived == ss.nodeStates[r].msgReceived + msgReceivedSingleSet
+                               && ss'.nodeStates[r].msgSent == ss.nodeStates[r].msgSent + outMsg
+                )
+                && (forall r | IsHonest(ss, r)
+                            :: ss'.nodeStates[r] == ss.nodeStates[r])
         )
         && ss.adversary.byz_nodes == ss'.adversary.byz_nodes
         && ss'.msgSent == ss.msgSent + outMsg

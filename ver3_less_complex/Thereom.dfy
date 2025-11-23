@@ -129,11 +129,13 @@ module M_Thereom {
                 
                 if m1_p.justify.viewNum <= m2_p.justify.viewNum {
                     assert extension(m2_p.justify.block, m1_p.justify.block) by {
-                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
+                        // assert correspondingQC(m1.justify, m1_p.justify);
+                        // assert correspondingQC(m2.justify, m2_p.justify);
+                        LemmaPrepareQCExtensionIfExistCommitQC(ss);
                     }
                 } else {
                     assert extension(m1_p.justify.block, m2_p.justify.block) by {
-                        LemmaPrepareQCWithLowerViewIsExtensionOfPrepareQCWithHigherView(ss);
+                        LemmaPrepareQCExtensionIfExistCommitQC(ss);
                     }
                 }
 

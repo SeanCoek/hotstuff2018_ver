@@ -4,7 +4,7 @@ include "Trace.dfy"
 include "Invariants.dfy"
 include "Replica.dfy"
 include "Auxilarily.dfy"
-include "Lemmas.dfy"
+include "Lemmas_bak.dfy"
 include "common/sets.dfy"
 
 module M_Thereom_bak {
@@ -14,7 +14,7 @@ module M_Thereom_bak {
     import opened M_Invariants
     import opened M_Replica
     import opened M_AuxilarilyFunc
-    import opened M_Lemma
+    import opened M_Lemma_bak
     import opened M_Set
 
     predicate consistentBlockchains(bc1 : Blockchain, bc2 : Blockchain)
