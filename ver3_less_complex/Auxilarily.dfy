@@ -18,6 +18,17 @@ module M_AuxilarilyFunc {
             sets[0] + setUnionOnSeq(sets[1..])
     }
 
+    /**
+     * @returns : a seq containing all elements in a set
+     */
+    function setToSeq<T>(s : set<T>) : seq<T>
+    {
+        if |s| == 0 then []
+        else
+            var e :| e in s;
+            [e] + setToSeq(s - {e})
+    }
+
     lemma LemmaElementInSetUnionOnSeqMustExistInOneOfTheSets<T>(e : T, sets : seq<set<T>>)
     requires e in setUnionOnSeq(sets)
     ensures exists i | 0 <= i < |sets|:: e in sets[i]
@@ -131,7 +142,8 @@ module M_AuxilarilyFunc {
     }
 
     /* Mapping each round to a delegated leader */
-    function leader(round : nat) : Address
+    function leader(round : nat) : (l : Address)
+    ensures l in M_SpecTypes.All_Nodes
 
     /* 
     Referring to ``MATCHINGMSG(m, t, v)'' in Algorithm 1 of HotStuff-2018
@@ -142,16 +154,22 @@ module M_AuxilarilyFunc {
     Therefore, we should strengthen this function by adding constrains.
     */
     function getMatchMsg(msgs : set<Msg>, msgType : MsgType, view : nat) : (r : set<Msg>)
-    ensures forall m | m in r :: m in msgs && ValidMsg(m) && m.mType == msgType && m.viewNum == view
+    ensures forall m | m in r :: ValidMsg(m) && m.mType == msgType && m.viewNum == view
+    ensures forall m | m in msgs :: ValidMsg(m) && m.mType == msgType && m.viewNum == view ==> m in r
+    ensures forall m | m in r
+                    :: 
+                       exists m2 | m2 in msgs
+                                :: 
+                                   m == m2
     // A honest node should only send one message in each phase of each round.
     // i.e.  
-    ensures forall m1, m2 | m1 in r && m2 in r :: m1.partialSig != m2.partialSig
-    ensures (forall m | m in msgs :: (
-                                     && (m.mType == msgType && m.viewNum == view)
-                                     && !(exists m2 | m2 in msgs :: && m2 != m
-                                                                    && m2.partialSig == m.partialSig)
-                                     )
-                                     ==> m in r)
+    // ensures forall m1, m2 | m1 in r && m2 in r :: m1.partialSig != m2.partialSig
+    // ensures (forall m | m in msgs :: (
+    //                                  && (m.mType == msgType && m.viewNum == view)
+    //                                  && !(exists m2 | m2 in msgs :: && m2 != m
+    //                                                                 && m2.partialSig == m.partialSig)
+    //                                  )
+    //                                  ==> m in r)
     // {
     //     set m | && m in msgs
     //             && m.mType == msgType
@@ -176,19 +194,6 @@ module M_AuxilarilyFunc {
                                     m in r
 
 
-    // method ExtractSignatrues(msgs : set<Msg>) returns (sgns : set<Signature>)
-    // {
-    //     sgns := {};
-    //     var remaining := msgs;
-    //     while remaining != {}
-    //         decreases |remaining|
-    //     {
-    //         var m :| m in remaining;
-    //         sgns := sgns + {m.partialSig};
-    //         remaining := remaining - {m};
-    //     }
-    // }
-
     function ExtractSignatrues(msgs : set<Msg>) : (r : set<Signature>)
     ensures |r| == |msgs|
     ensures forall s | s in r :: exists m | m in msgs :: m.partialSig == s
@@ -205,10 +210,9 @@ module M_AuxilarilyFunc {
     )
 
     function getHighQC(msgs : set<Msg>) : (r : Cert)
-    ensures r.Cert?
-    ensures r.block.Block?
-    ensures forall m | m in msgs :: m.justify.Cert? ==> r.viewNum >= m.justify.viewNum
-    ensures exists m | m in msgs :: m.justify == r
+    ensures ValidQC(r)
+    ensures forall m | m in msgs :: ValidQC(m.justify) ==> r.viewNum >= m.justify.viewNum
+    ensures exists m | m in msgs :: ValidQC(m.justify) && m.justify == r
 
     function getNewBlock(parent : Block) : (r : Block)
     ensures r.Block?
@@ -293,20 +297,25 @@ module M_AuxilarilyFunc {
     // requires qc.Cert?
     // requires |All_Nodes| > 0
     {
-        // && |All_Nodes| > 0
         && qc.Cert?
         && qc.block.Block?
-        && (forall s | s in qc.signatures
-                    ::  && s.Signature?
+        // All votes should be voting for same thing
+        && (forall s |  && s in qc.signatures
+                    ::  
+                        && s.Signature?
                         && s.mType == qc.cType
                         && s.viewNum == qc.viewNum
                         && s.block == qc.block
                         && s.signer in All_Nodes
             )
+        // For any two votes, if there are not the same vote,
+        // then there are coming from different signers
         && (forall s1, s2 | && s1 in qc.signatures 
                             && s2 in qc.signatures
                             // && s1 != s2
-                         :: s1.signer != s2.signer
+                        //  :: s1.signer != s2.signer   // Chenyi
+                         :: 
+                            && s1 != s2 ==> s1.signer != s2.signer
                          )
         && |qc.signatures| >= quorum(|All_Nodes|)
     }
@@ -394,23 +403,29 @@ module M_AuxilarilyFunc {
             && m.mType.MT_NewView?
             && ValidQC(m.justify)
             && m.justify.cType.MT_Prepare?
+            && m.partialSig.SigNone?
+            && m.block.EmptyBlock?
         )
         || (
             && m.mType.MT_Prepare?
             && (
                 ||
-                // Proposal
+                // Proposal From Leader
                 (   && m.partialSig.SigNone?
                     && ValidQC(m.justify)
                     && m.justify.cType.MT_Prepare?
-                    && m.viewNum > m.justify.viewNum
+                    && m.block.Block?
+                    && m.block.parent == m.justify.block
+                    // && m.viewNum > m.justify.viewNum
                     )
                 // Prepare Vote
                 || 
-                (   && m.partialSig.Signature?
-                    && m.partialSig.mType.MT_Prepare?
+                (   && m.justify.CertNone?
+                    && m.partialSig.Signature?
+                    && m.partialSig.mType == m.mType
                     && m.partialSig.block == m.block
                     && m.partialSig.viewNum == m.viewNum
+                    && m.partialSig.signer in All_Nodes
                     )
             )
         )
@@ -421,13 +436,17 @@ module M_AuxilarilyFunc {
                 (   && m.partialSig.SigNone?
                     && ValidQC(m.justify)
                     && m.justify.cType.MT_Prepare?
+                    && m.justify.viewNum == m.viewNum
+                    && m.block.EmptyBlock?
                     )
                 // PreCommit Vote  
                 || 
-                (   && m.partialSig.Signature?
-                    && m.partialSig.mType.MT_PreCommit?
+                (   && m.justify.CertNone?
+                    && m.partialSig.Signature?
+                    && m.partialSig.mType == m.mType
                     && m.partialSig.block == m.block
                     && m.partialSig.viewNum == m.viewNum
+                    && m.partialSig.signer in All_Nodes
                 )
             )
         )
@@ -438,23 +457,27 @@ module M_AuxilarilyFunc {
                 (   && m.partialSig.SigNone?
                     && ValidQC(m.justify)
                     && m.justify.cType.MT_PreCommit?
+                    && m.justify.viewNum == m.viewNum
+                    && m.block.EmptyBlock?
                     )
                 // Commit Vote  
                 || 
-                (   && m.partialSig.Signature?
-                    && m.partialSig.mType.MT_Commit?
+                (   && m.justify.CertNone?
+                    && m.partialSig.Signature?
+                    && m.partialSig.mType == m.mType
                     && m.partialSig.block == m.block
                     && m.partialSig.viewNum == m.viewNum
+                    && m.partialSig.signer in All_Nodes
                 )
             )
         )
         || (
             && m.mType.MT_Decide?
-            && (
-                && m.partialSig.SigNone?
-                && ValidQC(m.justify)
-                && m.justify.cType.MT_Commit?
-            )
+            && m.partialSig.SigNone?
+            && ValidQC(m.justify)
+            && m.justify.cType.MT_Commit?
+            && m.justify.viewNum == m.viewNum
+            && m.block.EmptyBlock?
         )
     }
 
@@ -471,6 +494,26 @@ module M_AuxilarilyFunc {
         && sig.mType == vote.mType
         && sig.viewNum == vote.viewNum
         && sig.block == vote.block
+    }
+
+    predicate corrVoteMsgAndToVotedMsg(vote : Msg, toVote : Msg)
+    requires ValidMsg(vote) && ValidMsg(toVote)
+    requires vote.partialSig.Signature?
+    requires ValidQC(toVote.justify)
+    {
+        || ( // Prepare Vote
+            && vote.mType.MT_Prepare?
+            && toVote.mType.MT_Prepare?
+            && vote.partialSig.block == toVote.block
+            && vote.partialSig.viewNum == toVote.viewNum
+        )
+        || ( // Precommit Vote
+            && vote.mType.MT_PreCommit?
+            && toVote.mType.MT_PreCommit?
+            && toVote.partialSig.SigNone?
+            && vote.partialSig.block == toVote.justify.block
+            && vote.partialSig.viewNum == toVote.justify.viewNum
+        )
     }
 
     function mapSeq<A, B>(s : seq<A>, f: A->B) : (r : seq<B>)
@@ -492,4 +535,26 @@ module M_AuxilarilyFunc {
         Msg(mType, viewNum, node, qc,
             Signature(signer, mType, viewNum, node))
     }
+
+    function getVotesForSafeProposals(proposals : seq<Msg>, lockedQC : Cert, id : Address) : (votes : set<Msg>)
+    {
+        if |proposals| == 0 then {}
+        else
+            voteForProposal(proposals[0], lockedQC, id)
+             + getVotesForSafeProposals(proposals[1..], lockedQC, id)
+    }
+
+    function voteForProposal(proposal : Msg, lockedQC : Cert, id : Address) : (vote : set<Msg>)
+    {
+        if && proposal.block.Block?
+            && proposal.justify.Cert?
+            && extension(proposal.block, proposal.justify.block) 
+            && lockedQC.Cert?
+            && safeNode(proposal.block, proposal.justify, lockedQC)
+        then 
+            {buildVoteMsg(MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)}
+        else 
+            {}
+    }
+
 }
