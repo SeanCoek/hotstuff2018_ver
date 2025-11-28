@@ -18,16 +18,21 @@ module M_AuxilarilyFunc {
             sets[0] + setUnionOnSeq(sets[1..])
     }
 
-    /**
-     * @returns : a seq containing all elements in a set
-     */
-    function setToSeq<T>(s : set<T>) : seq<T>
-    {
-        if |s| == 0 then []
-        else
-            var e :| e in s;
-            [e] + setToSeq(s - {e})
-    }
+    // /**
+    //  * @returns : a seq containing all elements in a set
+    //  */
+    // function setToSeq<T>(s : set<T>) : (r : seq<T>)
+    // ensures forall e | e in s :: e in r
+    // ensures forall i, j |   && 0 <= i < |r|
+    //                         && 0 <= j < |r|
+    //                     :: r[i] == r[j] ==> i == j
+    // ensures forall e | e in r :: e in s
+
+    // lemma EqualSizeBySetToSeq<T>(s : set<T>)
+    // ensures |setToSeq({})| == 0
+    // {
+
+    // }
 
     lemma LemmaElementInSetUnionOnSeqMustExistInOneOfTheSets<T>(e : T, sets : seq<set<T>>)
     requires e in setUnionOnSeq(sets)
@@ -179,19 +184,20 @@ module M_AuxilarilyFunc {
     function getMatchProposalMsg(msgs : set<Msg>, view : nat) : (r : set<Msg>)
     ensures forall m | m in r :: (
                                   && m in msgs 
-                                  && m.mType == MT_Prepare 
+                                  && ValidProposal(m)
                                   && m.viewNum == view
-                                  // When a prepare message doesn't hold a qc, it will be a vote message.
-                                  // Otherwise it's a proposal message
-                                  && m.justify != Cert.CertNone 
                                 )
     ensures forall m | m in msgs :: (
-                                     && m.mType == MT_Prepare
+                                     && ValidProposal(m)
                                      && m.viewNum == view
-                                     && m.justify != Cert.CertNone
                                     )
                                     ==>
                                     m in r
+    {
+        set m | && m in msgs
+                && ValidProposal(m)
+                && m.viewNum == view
+    }
 
 
     function ExtractSignatrues(msgs : set<Msg>) : (r : set<Signature>)
@@ -327,12 +333,41 @@ module M_AuxilarilyFunc {
         qc.signatures
     }
 
+    lemma SetExtension(x: Address, s: set<Address>)
+    requires x !in s
+    ensures |s+{x}| == |s| + 1
+    {}
+
+    lemma NumVoters(signatures: set<Signature>)
+    requires forall s :: s in signatures ==> s.Signature?
+    requires forall s1, s2 | s1 in signatures && s2 in signatures :: s1 != s2 ==> s1.signer != s2.signer
+    ensures |signatures| == |set sig | sig in signatures :: sig.signer|
+    decreases |signatures|
+    {
+        if |signatures| == 0 {}
+        else {
+            var s :| s in signatures;
+            // Chenyi: the following steps may be greatly simplified.....
+            var signatures' := signatures - {s};
+            NumVoters(signatures');
+            // assert |signatures'| == |set sig | sig in signatures' :: sig.signer|;
+            // assert |signatures'+{s}| == |signatures|;
+            // assert |(set sig | sig in signatures' :: sig.signer) + {s.signer}| == |signatures'+{s}|;
+            // assert s.signer !in set sig | sig in signatures' :: sig.signer;
+            SetExtension(s.signer, set sig | sig in signatures' :: sig.signer);
+            assert |(set sig | sig in signatures' :: sig.signer) + {s.signer}| == |set sig | sig in signatures' :: sig.signer| + 1;
+            assert (set sig | sig in signatures :: sig.signer) == (set sig | sig in signatures' :: sig.signer) + {s.signer};
+            assert |set sig | sig in signatures :: sig.signer| == |set sig | sig in signatures' :: sig.signer| + 1;
+        }
+    }
+
     function getMajoritySignerInValidQC(qc : Cert) : (ret : set<Address>)
     requires ValidQC(qc)
     ensures forall s | s in qc.signatures :: s.signer in All_Nodes
     ensures |ret| >= quorum(|All_Nodes|)
     {
         var votes := getVotesInValidQC(qc);
+        NumVoters(votes);
         set vote | vote in votes
                     :: vote.signer
     }
@@ -397,12 +432,135 @@ module M_AuxilarilyFunc {
         && m.justify.cType == cType
     }
 
-    function ValidMsg(m : Msg) : bool
+    /**
+     * >>>>>>>>>>>>>>>>>>>>>>>>>>>> Validation of message <<<<<<<<<<<<<<<<<<<<<<<<<
+     * > Here we define predicates to determine correct message in different kind.
+     * > There are 8 different kinds of valid messages : 
+     * > 1. NewView
+     * > 2. Prepare Request (Proposal)
+     * > 3. Prepare Vote
+     * > 4. Precommit Request
+     * > 5. Precommit Vote
+     * > 6. Commit Request
+     * > 7. Commit Vote
+     * > 8. Decide Message
+     */
+
+    predicate ValidNewView(m : Msg)
+    {
+        && m.mType.MT_NewView?
+            && ( 
+                || (
+                    && ValidQC(m.justify)
+                    && m.justify.cType.MT_Prepare?
+                )
+                || m.justify.CertNone?
+            )
+            && m.partialSig.SigNone?
+            && m.block.EmptyBlock?
+    }
+
+    predicate ValidProposal(m : Msg)
+    {
+        // && ValidMsg(m)
+        && m.mType.MT_Prepare?
+        && m.partialSig.SigNone?
+        && ValidQC(m.justify)
+        && m.justify.cType.MT_Prepare?
+        && m.block.Block?
+        && m.block.parent == m.justify.block
+    }
+
+    predicate ValidPrepareVote(m : Msg)
+    {
+        && m.mType.MT_Prepare?
+        && m.justify.CertNone?
+        && m.partialSig.Signature?
+        && m.partialSig.mType == m.mType
+        && m.partialSig.block == m.block
+        && m.partialSig.viewNum == m.viewNum
+        && m.partialSig.signer in All_Nodes
+    }
+
+    predicate ValidPrecommitRequest(m : Msg)
+    {
+        && m.mType.MT_PreCommit?
+        && m.partialSig.SigNone?
+        && ValidQC(m.justify)
+        && m.justify.cType.MT_Prepare?
+        && m.justify.viewNum == m.viewNum
+        && m.block.EmptyBlock?
+    }
+
+    predicate ValidPrecommitVote(m : Msg)
+    {
+        && m.mType.MT_PreCommit?
+        && m.justify.CertNone?
+        && m.partialSig.Signature?
+        && m.partialSig.mType == m.mType
+        && m.partialSig.block == m.block
+        && m.partialSig.viewNum == m.viewNum
+        && m.partialSig.signer in All_Nodes
+    }
+
+    predicate ValidCommitRequest(m : Msg)
+    {
+        && m.mType.MT_Commit?
+        && m.partialSig.SigNone?
+        && ValidQC(m.justify)
+        && m.justify.cType.MT_PreCommit?
+        && m.justify.viewNum == m.viewNum
+        && m.block.EmptyBlock?
+    }
+
+    predicate ValidCommitVote(m : Msg)
+    {
+        && m.mType.MT_Commit?
+        && m.justify.CertNone?
+        && m.partialSig.Signature?
+        && m.partialSig.mType == m.mType
+        && m.partialSig.block == m.block
+        && m.partialSig.viewNum == m.viewNum
+        && m.partialSig.signer in All_Nodes
+    }
+
+    predicate ValidDecideMsg(m : Msg)
+    {
+        && m.mType.MT_Decide?
+        && m.partialSig.SigNone?
+        && ValidQC(m.justify)
+        && m.justify.cType.MT_Commit?
+        && m.justify.viewNum == m.viewNum
+        && m.block.EmptyBlock?
+    }
+
+    predicate ValidMsg(m : Msg)
+    {
+        || ValidNewView(m)
+        || ValidProposal(m)
+        || ValidPrepareVote(m)
+        || ValidPrecommitRequest(m)
+        || ValidPrecommitVote(m)
+        || ValidCommitRequest(m)
+        || ValidCommitVote(m)
+        || ValidDecideMsg(m)
+    }
+
+    lemma TestValidMsg(m : Msg)
+    ensures ValidMsg_old(m) == ValidMsg(m)
+    {}
+
+    predicate ValidMsg_old(m : Msg)
     {
         || (
             && m.mType.MT_NewView?
-            && ValidQC(m.justify)
-            && m.justify.cType.MT_Prepare?
+            && ( 
+                || (
+                    && ValidQC(m.justify)
+                    && m.justify.cType.MT_Prepare?
+                )
+                || m.justify.CertNone?
+            )
             && m.partialSig.SigNone?
             && m.block.EmptyBlock?
         )
@@ -480,6 +638,8 @@ module M_AuxilarilyFunc {
             && m.block.EmptyBlock?
         )
     }
+    /** <<<<<<<<<<<<<<<<<<<<<<<<< End of validation of message >>>>>>>>>>>>>>>>>>>>>
+    */
 
     predicate correspondingQC(qc : Cert, qc' : Cert)
     requires ValidQC(qc) && ValidQC(qc')
@@ -536,15 +696,23 @@ module M_AuxilarilyFunc {
             Signature(signer, mType, viewNum, node))
     }
 
-    function getVotesForSafeProposals(proposals : seq<Msg>, lockedQC : Cert, id : Address) : (votes : set<Msg>)
+    function getVotesForSafeProposals(proposals : set<Msg>, lockedQC : Cert, id : Address) : (votes : set<Msg>)
+    requires forall p | p in proposals :: ValidProposal(p)
+    requires ValidQC(lockedQC) || lockedQC.CertNone?
+    // requires id in M_SpecTypes.All_Nodes
     {
-        if |proposals| == 0 then {}
-        else
-            voteForProposal(proposals[0], lockedQC, id)
-             + getVotesForSafeProposals(proposals[1..], lockedQC, id)
+        // if |proposals| == 0 then {}
+        // else
+        //     voteForProposal(proposals[0], lockedQC, id)
+        //      + getVotesForSafeProposals(proposals[1..], lockedQC, id)
+        set vote | vote in proposals
+                :: voteForProposal(vote, lockedQC, id)
     }
 
-    function voteForProposal(proposal : Msg, lockedQC : Cert, id : Address) : (vote : set<Msg>)
+    function voteForProposal(proposal : Msg, lockedQC : Cert, id : Address) : (vote : Msg)
+    requires ValidProposal(proposal)
+    requires ValidQC(lockedQC) || lockedQC.CertNone?
+    // requires id in M_SpecTypes.All_Nodes
     {
         if && proposal.block.Block?
             && proposal.justify.Cert?
@@ -552,9 +720,19 @@ module M_AuxilarilyFunc {
             && lockedQC.Cert?
             && safeNode(proposal.block, proposal.justify, lockedQC)
         then 
-            {buildVoteMsg(MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)}
+            buildVoteMsg(MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)
         else 
-            {}
+            buildVoteMsg(MT_Prepare, EmptyBlock, CertNone, proposal.viewNum, id)
+    }
+
+    function proposalVoteFilter(votes : set<Msg>) : (r : set<Msg>)
+    requires forall v | v in votes :: v.partialSig.Signature?
+    ensures forall v | v in r :: ValidMsg(v)
+    {
+        set v | && v in votes
+                && ValidMsg(v)
+                && v.block.EmptyBlock? && v.partialSig.block.EmptyBlock?
+                :: v
     }
 
 }
