@@ -44,9 +44,9 @@ module M_System {
     ghost predicate ValidSystemState(ss : SystemState)
     {
         && Inv_Node_Constraint(ss)
+        && forall replica | replica in ss.nodeStates.Keys :: ss.nodeStates[replica].msgSent <= ss.msgSent
         && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
         && forall replica | IsHonest(ss, replica) :: ss.nodeStates[replica].msgReceived <= ss.msgSent
-        && forall replica | replica in ss.nodeStates.Keys :: ss.nodeStates[replica].msgSent <= ss.msgSent
         // && forall m | m in ss.msgSent
         //            :: (exists r | r in ss.nodeStates.Keys
         //                        :: m in ss.nodeStates[r].msgSent)
@@ -69,6 +69,7 @@ module M_System {
             assert ValidSystemState(ss');
         }
         else {
+            // assert false;
             forall replica, msgReceivedByNodes, msgSentByNodes
                     | && msgReceivedByNodes <= ss.msgSent
                       && SystemNextByOneReplica(ss, ss', replica, msgReceivedByNodes, msgSentByNodes)
@@ -90,6 +91,7 @@ module M_System {
 
         }
         else {
+            // assert false;
             var replica, msgReceivedByNodes, msgSentByNodes
                    :|   && msgReceivedByNodes <= ss.msgSent
                         && SystemNextByOneReplica(ss, ss', replica, msgReceivedByNodes, msgSentByNodes);
@@ -99,6 +101,87 @@ module M_System {
 
     lemma LemmaSystemMsgSentIsUnionOfAllMsgSentInReplicaNext()
 
+
+    lemma LemmaInvNodeInSystemNextByOneReplica(
+        ss : SystemState, 
+        ss' : SystemState, 
+        replica : Address,
+        inMsg : set<Msg>,
+        outMsg : set<Msg>)
+    requires ValidSystemState(ss)
+    requires inMsg <= ss.msgSent
+    requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
+    ensures Inv_Node_Constraint(ss')
+    {
+
+    }
+
+    lemma LemmaHonestReplicaIsValidInSystemNextByOneReplica(
+        ss : SystemState, 
+        ss' : SystemState, 
+        replica : Address,
+        inMsg : set<Msg>,
+        outMsg : set<Msg>)
+    requires ValidSystemState(ss)
+    requires inMsg <= ss.msgSent
+    requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
+    ensures forall r | IsHonest(ss', r) :: ValidReplicaState(ss'.nodeStates[r])
+    {
+        if IsHonest(ss, replica) {
+            LemmaReplicaNextIsValid(ss.nodeStates[replica],
+                                    inMsg,
+                                    ss'.nodeStates[replica],
+                                    outMsg);
+        }
+    }
+
+    lemma LemmaHonestReplicaMsgReceivedIsSubsetOfSystemMsgSentInSystemNextByOneReplica(
+        ss : SystemState, 
+        ss' : SystemState, 
+        replica : Address,
+        inMsg : set<Msg>,
+        outMsg : set<Msg>)
+    requires ValidSystemState(ss)
+    requires inMsg <= ss.msgSent
+    requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
+    ensures forall r | IsHonest(ss', r) :: ss'.nodeStates[r].msgReceived <= ss'.msgSent
+    {
+        if IsHonest(ss, replica) {
+            var rState := ss.nodeStates[replica];
+            var rState' := ss'.nodeStates[replica];
+            LemmaMsgRelationInReplicaNext(rState, inMsg, rState', outMsg);
+        }
+    }
+
+    lemma LemmaReplicaMsgSentIsSubsetOfSystemMsgSentInSystemNextByOneReplica(
+        ss : SystemState, 
+        ss' : SystemState, 
+        replica : Address,
+        inMsg : set<Msg>,
+        outMsg : set<Msg>)
+    requires ValidSystemState(ss)
+    requires inMsg <= ss.msgSent
+    requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
+    ensures forall r | r in ss'.nodeStates.Keys :: ss'.nodeStates[r].msgSent <= ss'.msgSent
+    {
+        if IsHonest(ss, replica) {
+            var rState := ss.nodeStates[replica];
+            var rState' := ss'.nodeStates[replica];
+            LemmaMsgRelationInReplicaNext(rState, inMsg, rState', outMsg);
+            assert rState'.msgSent <= ss'.msgSent;
+        }
+        else {
+            forall r_byz | r_byz in ss.adversary.byz_nodes
+            ensures ss'.nodeStates[r_byz].msgSent <= ss'.msgSent {
+                var byzState := ss.nodeStates[r_byz];
+                var byzState' := ss'.nodeStates[r_byz];
+                // assert forall r | r in ss.nodeStates.Keys :: ss.nodeStates[r].msgSent <= ss.msgSent by {
+                //     assert ValidSystemState(ss);
+                // }
+                assert byzState'.msgSent <= ss'.msgSent;
+            }
+        }
+    }
 
     lemma LemmaSystemNextByOneReplicaIsValid(
         ss : SystemState, 
@@ -111,40 +194,10 @@ module M_System {
     requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
     ensures ValidSystemState(ss')
     {
-        var r := ss.nodeStates[replica];
-        var r' := ss'.nodeStates[replica];
-        if IsHonest(ss, replica) {
-            var msgReceivedSingleSet := set mr | mr in inMsg;
-            LemmaReplicaNextIsValid(r,
-                                msgReceivedSingleSet,
-                                r',
-                                outMsg);
-            assert ValidReplicaState(r');
-
-            assert ReplicaNext(r, msgReceivedSingleSet, r', outMsg);
-            assert r'.msgReceived >= r.msgReceived + msgReceivedSingleSet by {
-                LemmaMsgRelationInReplicaNext(r, 
-                                                msgReceivedSingleSet, 
-                                                r', 
-                                                outMsg);
-            }
-            assert r'.msgReceived <= ss'.msgSent by {
-                assert ss'.msgSent == ss.msgSent + outMsg;
-                LemmaMsgRelationInReplicaNext(r, msgReceivedSingleSet, r', outMsg);
-                assert r'.msgReceived - r.msgReceived <= outMsg;
-            }
-            assert r'.msgSent <= ss'.msgSent by {
-                assert ss'.msgSent == ss.msgSent + outMsg;
-                LemmaMsgRelationInReplicaNext(r, msgReceivedSingleSet, r', outMsg);
-                assert r'.msgSent == r.msgSent + outMsg;
-                assert r.msgSent <= ss.msgSent by {
-                    assert ValidSystemState(ss);
-                }
-            }
-        }
-        else {
-            // assert ValidSystemState(ss');
-        }
+        LemmaInvNodeInSystemNextByOneReplica(ss, ss', replica, inMsg, outMsg);
+        LemmaReplicaMsgSentIsSubsetOfSystemMsgSentInSystemNextByOneReplica(ss, ss', replica, inMsg, outMsg);
+        LemmaHonestReplicaIsValidInSystemNextByOneReplica(ss, ss', replica, inMsg, outMsg);
+        LemmaHonestReplicaMsgReceivedIsSubsetOfSystemMsgSentInSystemNextByOneReplica(ss, ss', replica, inMsg, outMsg);
     }
 
     /**
