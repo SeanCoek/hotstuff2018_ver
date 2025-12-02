@@ -306,18 +306,9 @@ module M_Replica {
     requires UponPreCommit(r, r', outMsg)
     ensures ValidReplicaState(r')
     {
+        NoOuterClient();
         // var leader := leader(r.viewNum);
         // assert r'.viewNum > 0;
-        // assert Inv_Blockchain_Inner_Consistency(r'.bc);
-        // assert (||(&& r'.commitQC.Cert?
-        //        && r'.commitQC.block.Block?
-        //        && r'.bc <= getAncestors(r'.commitQC.block)
-        //        )
-        //     ||(r'.commitQC.CertNone?)
-        //     );
-        // assert && |r'.bc| > 0
-        //        && r'.bc[0] == M_SpecTypes.Genesis_Block;
-        
         // assert r'.prepareQC.Cert? ==>
         //                         && ValidQC(r'.prepareQC)
         //                         && r'.prepareQC.cType == MT_Prepare
@@ -355,15 +346,20 @@ module M_Replica {
 
         // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
         //         || (exists m | && m in r'.msgReceived
-        //                     && m.mType.MT_Decide?
         //                     && m.justify.Cert?
         //                     && m.justify.cType.MT_Commit?
         //                     && ValidQC(m.justify)
-        //                     && m.justify.block.Block?
         //                     ::
         //                     r'.bc <= getAncestors(m.justify.block)
         //         )
         //  );
+
+        // assert |r.bc| > 0;
+        // assert r.bc[0] == M_SpecTypes.Genesis_Block;
+
+        // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
+        //     NoOuterClient();
+        // }
     }
 
     lemma LemmaValidationHoldsInCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -371,6 +367,59 @@ module M_Replica {
     requires UponCommit(r, r', outMsg)
     ensures ValidReplicaState(r')
     {
+        NoOuterClient();
+        // var leader := leader(r.viewNum);
+        // assert r'.viewNum > 0;
+        // assert r'.prepareQC.Cert? ==>
+        //                         && ValidQC(r'.prepareQC)
+        //                         && r'.prepareQC.cType == MT_Prepare
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.prepareQC;
+        // assert (r'.prepareQC.Cert? ==>
+        //                         && ValidQC(r'.prepareQC)
+        //                         && r'.prepareQC.cType == MT_Prepare
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.prepareQC
+        //     ) by {
+        //         if leader == r.id {
+        //             if r'.prepareQC.Cert? {
+        //                 assert ValidQC(r'.prepareQC);
+        //                 // assert r'.prepareQC.cType == MT_Prepare;
+        //                 // assert r'.msgReceived == r.msgReceived;
+        //             }
+        //         }
+        //         else {
+        //             if r'.prepareQC.Cert? {
+        //                 assert ValidQC(r'.prepareQC);
+        //             }
+        //         }
+        // }
+        
+        // assert (r'.commitQC.Cert? ==>
+        //                         && ValidQC(r'.commitQC)
+        //                         && r'.commitQC.cType == MT_PreCommit
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.commitQC
+        //     );
+
+        // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+        //         || (exists m | && m in r'.msgReceived
+        //                     && m.justify.Cert?
+        //                     && m.justify.cType.MT_Commit?
+        //                     && ValidQC(m.justify)
+        //                     ::
+        //                     r'.bc <= getAncestors(m.justify.block)
+        //         )
+        //  );
+
+        // assert |r.bc| > 0;
+        // assert r.bc[0] == M_SpecTypes.Genesis_Block;
+        // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
+        //     NoOuterClient();
+        // }
     }
 
     lemma LemmaValidationHoldsInDecidePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -583,12 +632,7 @@ module M_Replica {
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                // var sig := Signature(r.id, m_qc.cType, m_qc.viewNum, m_qc.block);
-                // assert sig.mType == MT_PreCommit;
-                // var vote2 := Msg(MT_PreCommit, r.viewNum, m_qc.block, CertNone, sig);
                 var vote := buildVoteMsg(MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
-                // assert vote == vote2;
-                // assert vote.mType == MT_PreCommit;
                 var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_Prepare, r.viewNum);
                 // What if these message contain different voted blocks?
                 // Split thess message by responding block, and get the group with the most elements.
@@ -603,6 +647,8 @@ module M_Replica {
                     // assert ValidQC(prepareQC);
                     var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
                     assert ValidQC(m_qc);
+                    assert ValidPrecommitVote(vote);
+                    assert ValidPrecommitRequest(precommitMsg);
                     && outMsg == {vote, precommitMsg}
                     && r' == r.(prepareQC := m_qc,
                                 msgSent := r.msgSent + {vote, precommitMsg})
@@ -618,16 +664,12 @@ module M_Replica {
                 assert r.prepareQC.Cert? ==> ValidQC(r.prepareQC);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|) && |maxSet| > 0
                 then
-                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.block == m2.block;
-                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.mType == m2.mType;
-                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet && m1 != m2 :: m1.partialSig.signer != m2.partialSig.signer;
-                    // assert forall m | m in maxSet :: m.mType == MT_Prepare;
-                    // assert forall m | m in maxSet :: m.block.Block?;
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                     // assert ValidQC(prepareQC);
                     var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    assert ValidPrecommitRequest(precommitMsg);
                     && outMsg == {precommitMsg}
                     && r' == r.(msgSent := r.msgSent + {precommitMsg})
                 else
@@ -640,10 +682,12 @@ module M_Replica {
             // Impossible in theory, but have to prove it
             if |matchQCs| > 0 
             then 
-                var m :| m in matchQCs;
-                var vote := buildVoteMsg(MT_PreCommit, m.block, CertNone, r.viewNum, r.id);
+                var m_qc :| m_qc in matchQCs;
+                var vote := buildVoteMsg(MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
+                NoOuterClient();
+                assert ValidPrecommitVote(vote);
                 && outMsg == {vote}
-                && r' == r.(prepareQC := m,
+                && r' == r.(prepareQC := m_qc,
                             msgSent := r.msgSent + {vote})
                 && ValidQC(r'.prepareQC)
             else 
@@ -656,24 +700,19 @@ module M_Replica {
     requires ValidReplicaState(r)
     {
         var leader := leader(r.viewNum);
+        var matchQCs := getMatchQC(r.msgReceived, MT_PreCommit, r.viewNum);
         if leader == r.id // Leader
         then
             // Leader doing leader and replica's work
-            var matchQCs := getMatchQC(r.msgReceived, MT_PreCommit, r.viewNum);
+            var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_PreCommit, r.viewNum);
+            // What if these message contain different voted blocks?
+            // Split thess message by responding block, and get the group with the most elements.
+            var splitSets := splitMsgByBlocks(matchMsgs);
+            var maxSet := getMaxLengthSet(splitSets);
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                // var sig := Signature(r.id, m_qc.cType, m_qc.viewNum, m_qc.block);
-                // assert sig.mType == MT_PreCommit;
-                // var vote2 := Msg(MT_PreCommit, r.viewNum, m_qc.block, CertNone, sig);
                 var vote := buildVoteMsg(MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
-                // assert vote == vote2;
-                // assert vote.mType == MT_Commit;
-                var matchMsgs := getMatchMsg(r.msgReceived, MT_PreCommit, r.viewNum);
-                // What if these message contain different voted blocks?
-                // Split thess message by responding block, and get the group with the most elements.
-                var splitSets := splitMsgByBlocks(matchMsgs);
-                var maxSet := getMaxLengthSet(splitSets);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 then
                     Axiom_Common_Constraints();
@@ -682,6 +721,8 @@ module M_Replica {
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
                     var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
                     assert ValidQC(m_qc);
+                    assert ValidCommitVote(vote);
+                    assert ValidCommitRequest(commitMsg);
                     && outMsg == {vote, commitMsg}
                     && r' == r.(commitQC := m_qc,
                                 msgSent := r.msgSent + {vote, commitMsg})
@@ -691,36 +732,20 @@ module M_Replica {
                     && r' == r.(commitQC := m_qc,
                                 msgSent := r.msgSent + {vote})
             else    // Only doing leader's work
-                var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_PreCommit, r.viewNum);
-                var splitSets := splitMsgByBlocks(matchMsgs);
-                var maxSet := getMaxLengthSet(splitSets);
+                // var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_PreCommit, r.viewNum);
+                // var splitSets := splitMsgByBlocks(matchMsgs);
+                // var maxSet := getMaxLengthSet(splitSets);
                 // assert r.prepareQC.Cert? ==> ValidQC(r.prepareQC);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|) && |maxSet| > 0
                 then
-                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.block == m2.block;
-                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.mType == m2.mType;
-                    assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.partialSig != m2.partialSig ==> m1.partialSig.signer != m2.partialSig.signer;
-                    assert forall m | m in maxSet :: m.mType == MT_PreCommit;
+                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.block == m2.block;
+                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.mType == m2.mType;
+                    // assert forall m1, m2 | m1 in maxSet && m2 in maxSet :: m1.partialSig != m2.partialSig ==> m1.partialSig.signer != m2.partialSig.signer;
+                    // assert forall m | m in maxSet :: m.mType == MT_PreCommit;
                     // assert forall m | m in maxSet :: m.block.Block?;
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                    // assert ValidQC(prepareQC);
-                    // assert (&& prepareQC.Cert?
-                    //         && prepareQC.block.Block?
-                    //         && (forall s | s in prepareQC.signatures
-                    //                     ::  && s.Signature?
-                    //                         && s.mType == prepareQC.cType
-                    //                         && s.viewNum == prepareQC.viewNum
-                    //                         && s.block == prepareQC.block
-                    //                         && s.signer in All_Nodes
-                    //             )
-                    //         && (forall s1, s2 | && s1 in prepareQC.signatures 
-                    //                             && s2 in prepareQC.signatures
-                    //                             && s1 != s2
-                    //                         :: s1.signer != s2.signer
-                    //                         )
-                    //         && |prepareQC.signatures| >= quorum(|All_Nodes|));
                     var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
                     // assert ValidQC(r'.prepareQC);
                     && outMsg == {commitMsg}
@@ -730,18 +755,15 @@ module M_Replica {
                     && r' == r
                     && outMsg == {}
         else    // Only doing replica's work
-            var matchQCs := getMatchQC(r.msgReceived, MT_PreCommit, r.viewNum);
+            // var matchQCs := getMatchQC(r.msgReceived, MT_PreCommit, r.viewNum);
             // What if these QCs contain different certificated block? 
             // Impossible in theory, but have to prove it
             if |matchQCs| > 0 
             then 
-                var m :| m in matchQCs;
-                // var sig := Signature(r.id, m.cType, m.viewNum, m.block);
-                // var vote2 := Msg(MT_PreCommit, r.viewNum, m.block, CertNone, sig);
-                var vote := buildVoteMsg(MT_Commit, m.block, CertNone, r.viewNum, r.id);
-                // assert vote == vote2;
+                var m_qc :| m_qc in matchQCs;
+                var vote := buildVoteMsg(MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
                 && outMsg == {vote}
-                && r' == r.(commitQC := m,
+                && r' == r.(commitQC := m_qc,
                             msgSent := r.msgSent + {vote})
                 // && ValidQC(r'.prepareQC)
             else 
@@ -753,7 +775,7 @@ module M_Replica {
     requires ValidReplicaState(r)
     {
         var leader := leader(r.viewNum);
-        var matchMsgs := getMatchMsg(r.msgReceived, MT_Commit, r.viewNum);
+        var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_Commit, r.viewNum);
         var splitSets := splitMsgByBlocks(matchMsgs);
         var maxSet := getMaxLengthSet(splitSets);
 
