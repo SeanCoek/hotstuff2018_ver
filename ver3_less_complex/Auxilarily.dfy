@@ -10,12 +10,19 @@ module M_AuxilarilyFunc {
     /**
      * @returns Set union of a sequence of sets
      */
-    function setUnionOnSeq<T>(sets : seq<set<T>>) : set<T>
+    function setUnionOnSeq<T>(sets : seq<set<T>>) : (r : set<T>)
+    ensures |sets| > 0 ==> r == sets[0] + setUnionOnSeq(sets[1..])
     {
         if sets == [] then
             {}
         else
             sets[0] + setUnionOnSeq(sets[1..])
+    }
+
+    lemma LemmaSetUnionOnSeqAdditive<T> (u : set<T>, s : seq<set<T>>, a : set<T>)
+    requires u == setUnionOnSeq(s)
+    ensures a + u == setUnionOnSeq([a] + s)
+    {
     }
 
     // /**
@@ -125,7 +132,7 @@ module M_AuxilarilyFunc {
     lemma LemmaHonestInQuorum<T> (allNodes: set<T>, byzNodes: set<T>, q1: set<T>)
     requires allNodes != {}
     requires q1 <= allNodes
-    requires |q1| == quorum(|allNodes|)
+    requires |q1| >= quorum(|allNodes|)
     requires |byzNodes| <= f(|allNodes|)
     ensures var honest := allNodes - byzNodes; q1 * honest != {}
     {
@@ -181,6 +188,40 @@ module M_AuxilarilyFunc {
     //             && m.viewNum == view
     // }
 
+    function getMatchVoteMsg(msgs : set<Msg>, t : MsgType, view : nat) : (r : set<Msg>)
+    ensures (forall m | m in r 
+                    :: && m in msgs
+                       && m.mType == t
+                       && m.viewNum == view
+                       && (
+                        || ValidPrepareVote(m)
+                        || ValidPrecommitVote(m)
+                        || ValidCommitVote(m)
+                       )
+            )
+    ensures (forall m | m in msgs
+                    :: (
+                        && m.mType == t
+                        && m.viewNum == view
+                        && (
+                            || ValidPrepareVote(m)
+                            || ValidPrecommitVote(m)
+                            || ValidCommitVote(m)
+                        )
+                    )
+                    ==> m in r
+            )
+    {
+        set m | && m in msgs
+                && m.mType == t
+                && m.viewNum == view
+                && (
+                    || ValidPrepareVote(m)
+                    || ValidPrecommitVote(m)
+                    || ValidCommitVote(m)
+                )
+    }
+
     function getMatchProposalMsg(msgs : set<Msg>, view : nat) : (r : set<Msg>)
     ensures forall m | m in r :: (
                                   && m in msgs 
@@ -201,19 +242,68 @@ module M_AuxilarilyFunc {
 
 
     function ExtractSignatrues(msgs : set<Msg>) : (r : set<Signature>)
+    requires forall m | m in msgs :: ValidVoteMsg(m)
+    requires forall m1, m2 | m1 in msgs && m2 in msgs
+                          :: 
+                            m1 != m2
+                            ==>
+                            corrVotesFromDiffSigner(m1, m2)
+                            
     ensures |r| == |msgs|
     ensures forall s | s in r :: exists m | m in msgs :: m.partialSig == s
+    {
+        NumSignatures(msgs);
+        set m | m in msgs
+             ::
+                m.partialSig
+    }
+
+    lemma NumSignatures(msgs : set<Msg>)
+    requires forall m | m in msgs :: ValidVoteMsg(m)
+    requires forall m1, m2 | m1 in msgs && m2 in msgs
+                          :: 
+                            // && m1.mType == m2.mType
+                            // &&
+                              ( m1 != m2
+                                ==>
+                                corrVotesFromDiffSigner(m1, m2)
+                              ) 
+    ensures |msgs| == |set sig | sig in msgs :: sig.partialSig|
+    {
+        if |msgs| == 0 {}
+        else {
+            var m :| m in msgs;
+            var msgs' := msgs - {m};
+            NumSignatures(msgs');
+            SetExtension(m.partialSig, set sig | sig in msgs' :: sig.partialSig);
+            assert |(set sig | sig in msgs' :: sig.partialSig) + {m.partialSig}| == |set sig | sig in msgs' :: sig.partialSig| + 1;
+            assert (set sig | sig in msgs :: sig.partialSig) == (set sig | sig in msgs' :: sig.partialSig) + {m.partialSig};
+            assert |set sig | sig in msgs :: sig.partialSig| == |set sig | sig in msgs' :: sig.partialSig| + 1;
+        }
+    }
 
 
-    ghost function getMatchQC(msgs : set<Msg>, cerType : MsgType, view : nat) : (r : set<Cert>)
-    ensures forall c | c in r :: ValidQC(c) && c.cType == cerType && c.viewNum == view
-    ensures forall c | c in r :: exists m | m in msgs && ValidMsg(m) :: m.justify == c
-    ensures forall m | m in msgs && ValidMsg(m) :: (&& ValidQC(m.justify)
-                                                    && m.justify.cType == cerType
+    ghost function getMatchQC(msgs : set<Msg>, mType : MsgType, cType : MsgType, view : nat) : (r : set<Cert>)
+    ensures forall c | c in r :: ValidQC(c) && c.cType == cType && c.viewNum == view
+    ensures forall c | c in r :: exists m | m in msgs && ValidMsg(m) && m.mType == mType :: m.justify == c
+    ensures forall m | m in msgs && ValidMsg(m) :: (
+                                                    && m.mType == mType
+                                                    && ValidQC(m.justify)
+                                                    && m.justify.cType == cType
                                                     && m.justify.viewNum == view
                                                     ==>
                                                     m.justify in r
     )
+    {
+        set m | && m in msgs
+                && ValidMsg(m)
+                && m.mType == mType
+                && ValidQC(m.justify)
+                && m.justify.cType == cType
+                && m.justify.viewNum == view
+              ::
+                m.justify
+    }
 
     function getHighQC(msgs : set<Msg>) : (r : Cert)
     ensures ValidQC(r)
@@ -300,8 +390,6 @@ module M_AuxilarilyFunc {
      * It is supposed to be a threshold decryption
      */
     predicate ValidQC(qc : Cert)
-    // requires qc.Cert?
-    // requires |All_Nodes| > 0
     {
         && qc.Cert?
         && qc.block.Block?
@@ -333,7 +421,7 @@ module M_AuxilarilyFunc {
         qc.signatures
     }
 
-    lemma SetExtension(x: Address, s: set<Address>)
+    lemma SetExtension<T>(x: T, s: set<T>)
     requires x !in s
     ensures |s+{x}| == |s| + 1
     {}
@@ -475,6 +563,7 @@ module M_AuxilarilyFunc {
     {
         && m.mType.MT_Prepare?
         && m.justify.CertNone?
+        && m.block.Block?
         && m.partialSig.Signature?
         && m.partialSig.mType == m.mType
         && m.partialSig.block == m.block
@@ -496,6 +585,7 @@ module M_AuxilarilyFunc {
     {
         && m.mType.MT_PreCommit?
         && m.justify.CertNone?
+        && m.block.Block?
         && m.partialSig.Signature?
         && m.partialSig.mType == m.mType
         && m.partialSig.block == m.block
@@ -517,6 +607,7 @@ module M_AuxilarilyFunc {
     {
         && m.mType.MT_Commit?
         && m.justify.CertNone?
+        && m.block.Block?
         && m.partialSig.Signature?
         && m.partialSig.mType == m.mType
         && m.partialSig.block == m.block
@@ -546,9 +637,12 @@ module M_AuxilarilyFunc {
         || ValidDecideMsg(m)
     }
 
-    lemma TestValidMsg(m : Msg)
-    ensures ValidMsg_old(m) == ValidMsg(m)
-    {}
+    predicate ValidVoteMsg(m : Msg)
+    {
+        || ValidPrepareVote(m)
+        || ValidPrecommitVote(m)
+        || ValidCommitVote(m)
+    }
 
     predicate ValidMsg_old(m : Msg)
     {
@@ -657,23 +751,38 @@ module M_AuxilarilyFunc {
     }
 
     predicate corrVoteMsgAndToVotedMsg(vote : Msg, toVote : Msg)
-    requires ValidMsg(vote) && ValidMsg(toVote)
-    requires vote.partialSig.Signature?
+    requires ValidVoteMsg(vote) && ValidMsg(toVote)
+    // requires vote.partialSig.Signature?
     requires ValidQC(toVote.justify)
     {
         || ( // Prepare Vote
-            && vote.mType.MT_Prepare?
-            && toVote.mType.MT_Prepare?
+            && ValidPrepareVote(vote)
+            && ValidProposal(toVote)
             && vote.partialSig.block == toVote.block
             && vote.partialSig.viewNum == toVote.viewNum
         )
         || ( // Precommit Vote
-            && vote.mType.MT_PreCommit?
-            && toVote.mType.MT_PreCommit?
-            && toVote.partialSig.SigNone?
+            && ValidPrecommitVote(vote)
+            && ValidPrecommitRequest(toVote)
+            // && toVote.partialSig.SigNone?
             && vote.partialSig.block == toVote.justify.block
             && vote.partialSig.viewNum == toVote.justify.viewNum
         )
+        || ( // Commit Vote
+            && ValidCommitVote(vote)
+            && ValidCommitRequest(toVote)
+            && vote.partialSig.block == toVote.justify.block
+            && vote.partialSig.viewNum == toVote.justify.viewNum
+        )
+    }
+
+    predicate corrVotesFromDiffSigner(v1 : Msg, v2 : Msg)
+    requires ValidVoteMsg(v1) && ValidVoteMsg(v2)
+    {
+        && v1.partialSig.mType == v2.partialSig.mType
+        && v1.partialSig.block == v2.partialSig.block
+        && v1.partialSig.viewNum == v2.partialSig.viewNum
+        && v1.partialSig.signer != v2.partialSig.signer
     }
 
     function mapSeq<A, B>(s : seq<A>, f: A->B) : (r : seq<B>)

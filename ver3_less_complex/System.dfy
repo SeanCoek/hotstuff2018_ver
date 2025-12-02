@@ -44,9 +44,9 @@ module M_System {
     ghost predicate ValidSystemState(ss : SystemState)
     {
         && Inv_Node_Constraint(ss)
-        && forall replica | replica in ss.nodeStates.Keys :: ss.nodeStates[replica].msgSent <= ss.msgSent
-        && forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica])
-        && forall replica | IsHonest(ss, replica) :: ss.nodeStates[replica].msgReceived <= ss.msgSent
+        && (forall replica | replica in ss.nodeStates.Keys :: ss.nodeStates[replica].msgSent <= ss.msgSent)
+        && (forall replica | IsHonest(ss, replica) :: ValidReplicaState(ss.nodeStates[replica]))
+        && (forall replica | IsHonest(ss, replica) :: ss.nodeStates[replica].msgReceived <= ss.msgSent)
         // && forall m | m in ss.msgSent
         //            :: (exists r | r in ss.nodeStates.Keys
         //                        :: m in ss.nodeStates[r].msgSent)
@@ -98,9 +98,6 @@ module M_System {
             LemmaSystemNextByOneReplicaIsValid(ss, ss', replica, msgReceivedByNodes, msgSentByNodes);
         }
     }
-
-    lemma LemmaSystemMsgSentIsUnionOfAllMsgSentInReplicaNext()
-
 
     lemma LemmaInvNodeInSystemNextByOneReplica(
         ss : SystemState, 

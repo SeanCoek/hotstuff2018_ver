@@ -32,8 +32,9 @@ module M_Thereom {
     }
 
     /**
-     * Every reachable system state holds the safety property.
-     *
+     * In every reachable system state, 
+     * any honest replica should hold a consistent local blockchain.
+     * 
     */
     lemma LemmaReachableSystemStateIsConsistent(ss : SystemState)
     requires Reachable(ss)
@@ -53,6 +54,7 @@ module M_Thereom {
             LemmaReachableStateIsValid(ss);
             assert ValidReplicaState(s1) && ValidReplicaState(s2);
             if s1.bc != [M_SpecTypes.Genesis_Block] && s2.bc != [M_SpecTypes.Genesis_Block] {
+                // assert false;
                 assert exists m1 | && m1 in s1.msgReceived
                                     // && m1.mType.MT_Decide?
                                     && m1.justify.Cert?
@@ -129,8 +131,6 @@ module M_Thereom {
                 
                 if m1_p.justify.viewNum <= m2_p.justify.viewNum {
                     assert extension(m2_p.justify.block, m1_p.justify.block) by {
-                        // assert correspondingQC(m1.justify, m1_p.justify);
-                        // assert correspondingQC(m2.justify, m2_p.justify);
                         LemmaPrepareQCExtensionIfExistCommitQC(ss);
                     }
                 } else {
@@ -146,15 +146,6 @@ module M_Thereom {
 
                 assert s2.bc <= m2_acstr;
                 assert s1.bc <= m1_acstr;
-
-                // assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr by {
-                //     if extension(m1.justify.block, m2.justify.block) {
-                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m1.justify.block, m2.justify.block);
-                //     }
-                //     else {
-                //         Lemma_AncestorOfParentIsPrefixOfAncestorOfChild(m2.justify.block, m1.justify.block);
-                //     }
-                // }
                 assert m2_acstr <= m1_acstr || m1_acstr <= m2_acstr;
                 assert s2.bc <= s1.bc || s1.bc <= s2.bc;
                 

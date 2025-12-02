@@ -90,6 +90,12 @@ module M_Set {
     ensures x <= z
     {}
 
+    lemma LemmaSetEqualityTransitive<T> (x : set<T>, y : set<T>, z : set<T>)
+    requires x == y && y == z
+    ensures x == z
+    {}
+
+
     lemma LemmaTest<T> (x: set<T>, y: set<T>)
     requires x < y
     ensures |x| < |y|
