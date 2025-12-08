@@ -39,20 +39,20 @@ module M_Replica {
         && r.id == id
         && r.bc == [M_SpecTypes.Genesis_Block]
         && r.viewNum == 1
-        && r.prepareQC == CertNone
-        && r.commitQC == CertNone
-        && r.msgReceived == {}
-        && r.msgSent == {}
+        && r.prepareQC == getInitialQC(MT_Prepare)
+        && r.commitQC == getInitialQC(MT_PreCommit)
+        && r.msgReceived == {getInitialMsg()}
+        && r.msgSent == {getInitialMsg()}
     }
 
     lemma LemmaInitReplicaIsValid(r : ReplicaState)
     requires ReplicaInit(r, r.id)
     ensures ValidReplicaState(r)
     {
-        assert r.commitQC.CertNone?;
-        assert r.prepareQC.CertNone?;
+        // assert r.commitQC.CertNone?;
+        // assert r.prepareQC.CertNone?;
         assert r.bc == [M_SpecTypes.Genesis_Block];
-        assert r.msgSent == {};
+        // assert r.msgSent == {};
     }
 
     lemma LemmaReplicaNextSubIsValid(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
@@ -465,40 +465,40 @@ module M_Replica {
         assert && |r'.bc| > 0
                && r'.bc[0] == M_SpecTypes.Genesis_Block;
         
-        assert r'.prepareQC.Cert? ==>
-                                && ValidQC(r'.prepareQC)
-                                && r'.prepareQC.cType == MT_Prepare
-                                && exists m | m in r'.msgReceived
-                                            ::
-                                            && m.justify == r'.prepareQC;
-        assert (r'.prepareQC.Cert? ==>
-                                && ValidQC(r'.prepareQC)
-                                && r'.prepareQC.cType == MT_Prepare
-                                && exists m | m in r'.msgReceived
-                                            ::
-                                            && m.justify == r'.prepareQC
-            ) by {
-                if leader == r.id {
-                    if r'.prepareQC.Cert? {
-                        assert ValidQC(r'.prepareQC);
-                        // assert r'.prepareQC.cType == MT_Prepare;
-                        // assert r'.msgReceived == r.msgReceived;
-                    }
-                }
-                else {
-                    if r'.prepareQC.Cert? {
-                        assert ValidQC(r'.prepareQC);
-                    }
-                }
-        }
+        // assert r'.prepareQC.Cert? ==>
+        //                         && ValidQC(r'.prepareQC)
+        //                         && r'.prepareQC.cType == MT_Prepare
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.prepareQC;
+        // assert (r'.prepareQC.Cert? ==>
+        //                         && ValidQC(r'.prepareQC)
+        //                         && r'.prepareQC.cType == MT_Prepare
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.prepareQC
+            // ) by {
+            //     if leader == r.id {
+            //         if r'.prepareQC.Cert? {
+            //             assert ValidQC(r'.prepareQC);
+            //             // assert r'.prepareQC.cType == MT_Prepare;
+            //             // assert r'.msgReceived == r.msgReceived;
+            //         }
+            //     }
+            //     else {
+            //         if r'.prepareQC.Cert? {
+            //             assert ValidQC(r'.prepareQC);
+            //         }
+            //     }
+        // }
         
-        assert (r'.commitQC.Cert? ==>
-                                && ValidQC(r'.commitQC)
-                                && r'.commitQC.cType == MT_PreCommit
-                                && exists m | m in r'.msgReceived
-                                            ::
-                                            && m.justify == r'.commitQC
-            );
+        // assert (r'.commitQC.Cert? ==>
+        //                         && ValidQC(r'.commitQC)
+        //                         && r'.commitQC.cType == MT_PreCommit
+        //                         && exists m | m in r'.msgReceived
+        //                                     ::
+        //                                     && m.justify == r'.commitQC
+        //     );
 
         assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
                 || (exists m | && m in r'.msgReceived
@@ -915,25 +915,31 @@ module M_Replica {
         && r.viewNum > 0
         // If a replica accepted a Prepare certificate,
         // then it must received a PreCommit Message from the leader before, together with a valid Prepare certificate
+        && ValidQC(r.prepareQC)
         && (r.prepareQC.Cert? ==>
                                 && ValidQC(r.prepareQC)
                                 && r.prepareQC.cType == MT_Prepare
-                                && exists m | m in r.msgReceived
+                                && ( || (exists m | m in r.msgReceived
                                             ::
                                             // && m.mType.MT_PreCommit?
                                             && m.justify == r.prepareQC
                                             && ValidPrecommitRequest(m)
+                                        )
+                                     || isInitialQC(r.prepareQC)
+                                )
             )
         // If a replica accepted a Precommit certificate (set it to its local variable `commitQC`),
         // then it must received a Commit Message from the leader before, together with a valid Precommit certificate
         && (r.commitQC.Cert? ==>
                                 && ValidQC(r.commitQC)
                                 && r.commitQC.cType == MT_PreCommit
-                                && exists m | m in r.msgReceived
+                                && (|| (exists m | m in r.msgReceived
                                             ::
                                             // && m.mType.MT_Commit?
                                             && m.justify == r.commitQC
-                                            && ValidCommitRequest(m)
+                                            && ValidCommitRequest(m))
+                                    || isInitialQC(r.commitQC)
+                                )
             )
         // If a replica received a Decide Message with a valid certificate,
         // then it should always update its local blockchain accordingly.

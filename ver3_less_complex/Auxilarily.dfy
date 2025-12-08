@@ -60,6 +60,23 @@ module M_AuxilarilyFunc {
             (setSize - 1) / 3
     }
 
+    function getInitialQC(cType : MsgType) : (r : Cert)
+    ensures ValidQC(r)
+    ensures r.cType == cType && r.viewNum == 0 && r.block == Genesis_Block
+
+    predicate isInitialQC(qc : Cert)
+    {
+        && ValidQC(qc)
+        && qc.block == Genesis_Block
+        && qc.viewNum == 0
+    }
+
+    function getInitialMsg() : (m : Msg)
+    ensures ValidNewView(m)
+    {
+        Msg(MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone)
+    }
+
     /**
     * @returns The minimum size that any two subsets of validators for a
     *          network with `setSize` validators must have to guarantee that
@@ -305,15 +322,51 @@ module M_AuxilarilyFunc {
                 m.justify
     }
 
+    // function pickMsgFromSet(msgs : set<Msg>) : (r : Msg)
+    // requires msgs != {}
+    // ensures r in msgs
+    // {
+
+    // }
+
+    // predicate highQCComparator(m1 : Msg, m2 : Msg)
+    // requires ValidQC(m1.justify) && ValidQC(m2.justify)
+    // {
+    //     || m1.justify.viewNum > m2.justify.viewNum
+    //     || m1.
+    // }
+
+
     function getHighQC(msgs : set<Msg>) : (r : Cert)
+    requires msgs != {}
+    requires forall m | m in msgs :: ValidQC(m.justify)
+    // requires forall m1, m2 | m1 in msgs && m2 in msgs :: m1 != m2 ==> m1.justify.viewNum != m2.justify.viewNum
     ensures ValidQC(r)
     ensures forall m | m in msgs :: ValidQC(m.justify) ==> r.viewNum >= m.justify.viewNum
     ensures exists m | m in msgs :: ValidQC(m.justify) && m.justify == r
+    // {
+        // if |msgs| == 1 then
+        //     Set.LemmaIsSingleton(msgs);
+        //     assert Set.IsSingleton(msgs);
+        //     var m :| m in msgs;
+        //     m.justify
+        // else 
+        //     var m :| m in msgs;
+        //     var m2 := getHighQC(msgs - {m});
+        //     if m2.CertNone? || m.justify.viewNum > m2.viewNum
+        //     then
+        //         m.justify
+        //     else
+        //         m2
+    // }
 
     function getNewBlock(parent : Block) : (r : Block)
     ensures r.Block?
     ensures r.parent == parent
     ensures r.parent != r
+    {
+        Block(parent)
+    }
 
     function getAncestors(b : Block) : (r : seq<Block>)
     // requires b.Block?
@@ -537,13 +590,13 @@ module M_AuxilarilyFunc {
     predicate ValidNewView(m : Msg)
     {
         && m.mType.MT_NewView?
-            && ( 
-                || (
+            // && ( 
+                // || (
                     && ValidQC(m.justify)
                     && m.justify.cType.MT_Prepare?
-                )
-                || m.justify.CertNone?
-            )
+                // )
+                // || m.justify.CertNone?
+            // )
             && m.partialSig.SigNone?
             && m.block.EmptyBlock?
     }

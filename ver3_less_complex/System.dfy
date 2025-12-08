@@ -204,7 +204,7 @@ module M_System {
     // ensures ValidSystemState(ss)
     {
         && Inv_Node_Constraint(ss)
-        && ss.msgSent == {}
+        && ss.msgSent == {getInitialMsg()}
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && (forall r | r in ss.nodeStates :: ReplicaInit(ss.nodeStates[r], r))
         && AdversaryInit(ss.adversary)

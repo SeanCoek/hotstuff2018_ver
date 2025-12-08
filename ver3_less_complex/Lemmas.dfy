@@ -33,7 +33,6 @@ module M_Lemma {
                                               :: 
                                                 && ValidVoteMsg(m)
                                                 && corrVoteMsg(sig, m)
-                                                 
 
     /*<<<<<<<<<<<<<<<<<<<<<<< END : Lemmas For Message Transmisson */
 
