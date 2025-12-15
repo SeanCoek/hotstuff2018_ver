@@ -31,13 +31,13 @@ module M_Thereom_bak {
                 :: consistentBlockchains(t(i).nodeStates[r1].bc, t(i).nodeStates[r2].bc)
     }
 
-    ghost predicate Inv_All(ss : SystemState)
-    {
-        && Inv_Constant_Fields(ss)
-        && Inv_Honest_Node_Only_Vote_One_Proposal_At_Same_View(ss)
-        && Inv_Honest_Node_Only_Vote_One_Prepare_At_Same_View(ss)
-        && Inv_Honest_Node_Only_Vote_One_PreCommit_At_Same_View(ss)
-    }
+    // ghost predicate Inv_All(ss : SystemState)
+    // {
+    //     && Inv_Constant_Fields(ss)
+    //     && Inv_Honest_Node_Only_Vote_One_Proposal_At_Same_View(ss)
+    //     && Inv_Honest_Node_Only_Vote_One_Prepare_At_Same_View(ss)
+    //     && Inv_Honest_Node_Only_Vote_One_PreCommit_At_Same_View(ss)
+    // }
 
     /**
      * Here we conduct our safety proof by 3 steps:

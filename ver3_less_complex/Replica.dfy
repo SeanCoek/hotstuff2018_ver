@@ -2,12 +2,14 @@ include "Type.dfy"
 include "Auxilarily.dfy"
 include "Axioms.dfy"
 include "common/proofs.dfy"
+include "Invariants.dfy"
 
 module M_Replica {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
     import opened M_Axiom
     import opened M_ProofTactic
+    import opened M_Invariants
 
     /**
      *  Bookeeping variables for a replica
@@ -41,87 +43,87 @@ module M_Replica {
         && r.viewNum == 1
         && r.prepareQC == getInitialQC(MT_Prepare)
         && r.commitQC == getInitialQC(MT_PreCommit)
-        && r.msgReceived == {getInitialMsg()}
-        && r.msgSent == {getInitialMsg()}
+        && r.msgReceived == {getInitialMsg(id)}
+        && r.msgSent == {getInitialMsg(id)}
     }
 
-    lemma LemmaInitReplicaIsValid(r : ReplicaState)
-    requires ReplicaInit(r, r.id)
-    ensures ValidReplicaState(r)
-    {
-        // assert r.commitQC.CertNone?;
-        // assert r.prepareQC.CertNone?;
-        assert r.bc == [M_SpecTypes.Genesis_Block];
-        // assert r.msgSent == {};
-    }
+    // lemma LemmaInitReplicaIsValid(r : ReplicaState)
+    // requires ReplicaInit(r, r.id)
+    // ensures ValidReplicaState(r)
+    // {
+    //     // assert r.commitQC.CertNone?;
+    //     // assert r.prepareQC.CertNone?;
+    //     assert r.bc == [M_SpecTypes.Genesis_Block];
+    //     // assert r.msgSent == {};
+    // }
 
-    lemma LemmaReplicaNextSubIsValid(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNextSubStep(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
+    // lemma LemmaReplicaNextSubIsValid(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNextSubStep(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
         
-        if exists outMsg :: ReplicaNextSubStep(r, r', outMsg)
-        {
-            var outMsg :| ReplicaNextSubStep(r, r', outMsg);
-            if UponPrepare(r, r', outMsg)
-            {
-                LemmaValidationHoldsInPreparePhase(r, r', outMsg);
-            }
-            else if UponPreCommit(r, r', outMsg)
-            {
-                LemmaValidationHoldsInPreCommitPhase(r, r', outMsg);
-            }
-            else if UponCommit(r, r', outMsg)
-            {
-                LemmaValidationHoldsInCommitPhase(r, r', outMsg);
-            }
-            else if UponDecide(r, r', outMsg)
-            {
-                LemmaValidationHoldsInDecidePhase(r, r', outMsg);
-            }
-            else
-            {
-                LemmaValidationHoldsInNewViewPhase(r, r', outMsg);
-                // UponTimeOut are proved automatically by Dafny
-            }
-        }
-    }
+    //     if exists outMsg :: ReplicaNextSubStep(r, r', outMsg)
+    //     {
+    //         var outMsg :| ReplicaNextSubStep(r, r', outMsg);
+    //         if UponPrepare(r, r', outMsg)
+    //         {
+    //             LemmaValidationHoldsInPreparePhase(r, r', outMsg);
+    //         }
+    //         else if UponPreCommit(r, r', outMsg)
+    //         {
+    //             LemmaValidationHoldsInPreCommitPhase(r, r', outMsg);
+    //         }
+    //         else if UponCommit(r, r', outMsg)
+    //         {
+    //             LemmaValidationHoldsInCommitPhase(r, r', outMsg);
+    //         }
+    //         else if UponDecide(r, r', outMsg)
+    //         {
+    //             LemmaValidationHoldsInDecidePhase(r, r', outMsg);
+    //         }
+    //         else
+    //         {
+    //             LemmaValidationHoldsInNewViewPhase(r, r', outMsg);
+    //             // UponTimeOut are proved automatically by Dafny
+    //         }
+    //     }
+    // }
 
-    lemma LemmaReplicaNextIsValid(r : ReplicaState, inMsg : set<Msg>, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNext(r, inMsg, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-        var allMsgReceived := r.msgReceived + inMsg;
-        var replicaWithNewMsgReceived := r.(
-            msgReceived := allMsgReceived
-        );
-        var s : seq<ReplicaState>, o : seq<set<Msg>> :|
-                && |s| > 2
-                && |o| == |s| - 1
-                && s[0] == replicaWithNewMsgReceived
-                && s[|s|-1] == r'
-                && (forall i | 0 <= i < |s| - 1 ::
-                    && ValidReplicaState(s[i])
-                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
-                )
-                && outMsg == setUnionOnSeq(o);
-        assert ValidReplicaState(r') by {
-            assert ValidReplicaState(s[|s|-2]);
-            assert ReplicaNextSubStep(s[|s|-2], s[|s|-1], o[|s|-2]);
-            LemmaReplicaNextSubIsValid(s[|s|-2], s[|s|-1], o[|s|-2]);
-        }
-    }
+    // lemma LemmaReplicaNextIsValid(r : ReplicaState, inMsg : set<Msg>, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNext(r, inMsg, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    //     var allMsgReceived := r.msgReceived + inMsg;
+    //     var replicaWithNewMsgReceived := r.(
+    //         msgReceived := allMsgReceived
+    //     );
+    //     var s : seq<ReplicaState>, o : seq<set<Msg>> :|
+    //             && |s| > 2
+    //             && |o| == |s| - 1
+    //             && s[0] == replicaWithNewMsgReceived
+    //             && s[|s|-1] == r'
+    //             && (forall i | 0 <= i < |s| - 1 ::
+    //                 && ValidReplicaState(s[i])
+    //                 && ReplicaNextSubStep(s[i], s[i+1], o[i])
+    //             )
+    //             && outMsg == setUnionOnSeq(o);
+    //     assert ValidReplicaState(r') by {
+    //         assert ValidReplicaState(s[|s|-2]);
+    //         assert ReplicaNextSubStep(s[|s|-2], s[|s|-1], o[|s|-2]);
+    //         LemmaReplicaNextSubIsValid(s[|s|-2], s[|s|-1], o[|s|-2]);
+    //     }
+    // }
 
-    lemma LemmaReplicaNextSubStable(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNextSubStep(r, r', outMsg)
-    ensures r'.msgReceived == r.msgReceived
-    ensures r'.msgSent == r.msgSent + outMsg
-    {
+    // lemma LemmaReplicaNextSubStable(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNextSubStep(r, r', outMsg)
+    // ensures r'.msgReceived == r.msgReceived
+    // ensures r'.msgSent == r.msgSent + outMsg
+    // {
 
-    }
+    // }
 
     ghost predicate ValidReplicaNextSubSeq(s : seq<ReplicaState>, o : seq<set<Msg>>)
     {
@@ -136,100 +138,99 @@ module M_Replica {
         // && outMsg == setUnionOnSeq(o)
     }
 
-    lemma LemmaReplicaMsgReceiveStableInNextSubSeq(s : seq<ReplicaState>, o : seq<set<Msg>>)
-    requires ValidReplicaNextSubSeq(s, o)
-    ensures forall i, j | && 0 <= i < |s|
-                          && 0 <= j < |s|
-                        ::
-                          && s[i].msgReceived == s[j].msgReceived
-    {
-        var msgRecSeq := mapSeq(s, getMsgReceiveReplica);
-        forall i, j | && 0 <= i < |s|
-                      && 0 <= j < |s|
-        ensures s[i].msgReceived == s[j].msgReceived {
-            forall i | 0 <= i < |s|-1 
-            ensures msgRecSeq[i] == msgRecSeq[i+1] {
-                LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
-            }
-            LemmaSetEqualityTransitiveInSeq(msgRecSeq);
-        }
-    }
+    // lemma LemmaReplicaMsgReceiveStableInNextSubSeq(s : seq<ReplicaState>, o : seq<set<Msg>>)
+    // requires ValidReplicaNextSubSeq(s, o)
+    // ensures forall i, j | && 0 <= i < |s|
+    //                       && 0 <= j < |s|
+    //                     ::
+    //                       && s[i].msgReceived == s[j].msgReceived
+    // {
+    //     var msgRecSeq := mapSeq(s, getMsgReceiveReplica);
+    //     forall i, j | && 0 <= i < |s|
+    //                   && 0 <= j < |s|
+    //     ensures s[i].msgReceived == s[j].msgReceived {
+    //         forall i | 0 <= i < |s|-1 
+    //         ensures msgRecSeq[i] == msgRecSeq[i+1] {
+    //             LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
+    //         }
+    //         LemmaSetEqualityTransitiveInSeq(msgRecSeq);
+    //     }
+    // }
 
-    lemma LemmaMsgRelationInReplicaNext(
-        r : ReplicaState,
-        inMsg : set<Msg>,
-        r' : ReplicaState,
-        outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNext(r, inMsg, r', outMsg)
-    ensures r'.msgReceived == r.msgReceived + inMsg
+    // lemma LemmaMsgRelationInReplicaNext(
+    //     r : ReplicaState,
+    //     inMsg : set<Msg>,
+    //     r' : ReplicaState,
+    //     outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNext(r, inMsg, r', outMsg)
+    // ensures r'.msgReceived == r.msgReceived + inMsg
+    // // ensures r'.msgReceived - r.msgReceived <= outMsg
+    // ensures r'.msgSent == r.msgSent + outMsg
+    // // ensures forall m | m in outMsg :: m.sender == r'.id
+    // {
+    //     var allMsgReceived := r.msgReceived + inMsg;
+    //     var replicaWithNewMsgReceived := r.(
+    //         msgReceived := allMsgReceived
+    //     );
+    //     var s : seq<ReplicaState>, o : seq<set<Msg>> :|
+    //             && |s| > 2
+    //             && |o| == |s| - 1
+    //             && s[0] == replicaWithNewMsgReceived
+    //             && s[|s|-1] == r'
+    //             && (forall i | 0 <= i < |s| - 1 ::
+    //                 && ValidReplicaState(s[i])
+    //                 && ReplicaNextSubStep(s[i], s[i+1], o[i])
+    //             )
+    //             && outMsg == setUnionOnSeq(o);
+    //     // assert s[0].msgReceived == r.msgReceived + inMsg;
+    //     // var msgSeq := mapSeq(s, getMsgReceive);
+    //     // LemmaSetEqualityTransitiveInSeq(msgSeq);
+    //     // assert s[0].msgReceived == s[|s|-1].msgReceived;
+    //     // var msg : set<Msg> := getMsgReceive(s[0]);
+    //     // forall i | 0 <= i < |s| - 1
+    //     // ensures forall m | m in o[i] :: m.sender == s[i+1].id
+    //     // {
+    //     //     LemmaReplicaSendMsgWithOwnIDInReplicaNextSub(s[i], s[i+1], o[i]);
+    //     // }
+    //     var msgRecSeq := mapSeq(s, getMsgReceiveReplica);
+    //     var msgSentSeq := mapSeq(s, getMsgSentReplica);
+    //     assert s[|s|-1].msgReceived == s[0].msgReceived by {
+    //         forall i | 0 <= i < |s|-1 
+    //         ensures msgRecSeq[i] == msgRecSeq[i+1] {
+    //             LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
+    //         }
+    //         LemmaSetEqualityTransitiveInSeq(msgRecSeq);
+    //     }
+
+    //     assert s[|s|-1].msgSent == s[0].msgSent + outMsg by {
+    //         forall i | 0 < i < |s|
+    //         ensures msgSentSeq[i] == msgSentSeq[i-1] + o[i-1] {
+    //             LemmaReplicaNextSubStable(s[i-1], s[i], o[i-1]);
+    //         }
+    //         LemmaSeqCumulative(msgSentSeq, o);
+    //     }
+
+    // }
+
+    // lemma LemmaSubsetTransitive(a : set, b : set, c : set)
+    // requires a <= b && b <= c
+    // ensures a <= c
+    // {
+
+    // }
+
+    // lemma LemmaReplicaNextSubStepHoldsMsgSubsetRelation(
+    //     r : ReplicaState,
+    //     r' : ReplicaState,
+    //     outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNextSubStep(r, r', outMsg)
+    // ensures r.msgReceived <= r'.msgReceived
     // ensures r'.msgReceived - r.msgReceived <= outMsg
-    ensures r'.msgSent == r.msgSent + outMsg
-    {
-        var allMsgReceived := r.msgReceived + inMsg;
-        var replicaWithNewMsgReceived := r.(
-            msgReceived := allMsgReceived
-        );
-        var s : seq<ReplicaState>, o : seq<set<Msg>> :|
-                && |s| > 2
-                && |o| == |s| - 1
-                && s[0] == replicaWithNewMsgReceived
-                && s[|s|-1] == r'
-                && (forall i | 0 <= i < |s| - 1 ::
-                    && ValidReplicaState(s[i])
-                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
-                )
-                && outMsg == setUnionOnSeq(o);
-        // assert s[0].msgReceived == r.msgReceived + inMsg;
-        // var msgSeq := mapSeq(s, getMsgReceive);
-        // LemmaSetEqualityTransitiveInSeq(msgSeq);
-        // assert s[0].msgReceived == s[|s|-1].msgReceived;
-        // var msg : set<Msg> := getMsgReceive(s[0]);
-        var msgRecSeq := mapSeq(s, getMsgReceiveReplica);
-        var msgSentSeq := mapSeq(s, getMsgSentReplica);
-        assert s[|s|-1].msgReceived == s[0].msgReceived by {
-            forall i | 0 <= i < |s|-1 
-            ensures msgRecSeq[i] == msgRecSeq[i+1] {
-                LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
-            }
-            LemmaSetEqualityTransitiveInSeq(msgRecSeq);
-        }
+    // ensures r'.msgSent == r.msgSent + outMsg
+    // {}
 
-        assert s[|s|-1].msgSent == s[0].msgSent + outMsg by {
-            forall i | 0 < i < |s|
-            ensures msgSentSeq[i] == msgSentSeq[i-1] + o[i-1] {
-                LemmaReplicaNextSubStable(s[i-1], s[i], o[i-1]);
-            }
-            LemmaSeqCumulative(msgSentSeq, o);
-        }
-
-    }
-
-    lemma LemmaSubsetTransitive(a : set, b : set, c : set)
-    requires a <= b && b <= c
-    ensures a <= c
-    {
-
-    }
-
-    lemma LemmaReplicaNextSubStepHoldsMsgSubsetRelation(
-        r : ReplicaState,
-        r' : ReplicaState,
-        outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNextSubStep(r, r', outMsg)
-    ensures r.msgReceived <= r'.msgReceived
-    ensures r'.msgReceived - r.msgReceived <= outMsg
-    ensures r'.msgSent == r.msgSent + outMsg
-    {}
-
-
-    predicate Inv_Node_Constraint()
-    {   
-        && |M_SpecTypes.All_Nodes| > 0
-        && |Adversary_Nodes| <= f(|All_Nodes|)
-        && M_SpecTypes.Honest_Nodes * M_SpecTypes.Adversary_Nodes == {}
-    }
 
     /**
      * Consider this as a big step of state transition.
@@ -284,278 +285,280 @@ module M_Replica {
         || UponTimeOut(r, r', outMsg)
     }
 
-    lemma LemmaValidationHoldForReplicaTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires (|| UponNextView(r, r', outMsg)
-              || UponTimeOut(r, r', outMsg)
-              || UponPrepare(r, r', outMsg)
-              || UponPreCommit(r, r', outMsg)
-              || UponCommit(r, r', outMsg)
-              || UponDecide(r, r', outMsg)
-              ) 
-    ensures ValidReplicaState(r')
-    {
-        LemmaReplicaNextSubIsValid(r, r', outMsg);
-    }
+    // lemma LemmaValidationHoldForReplicaTransition(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires (|| UponNextView(r, r', outMsg)
+    //           || UponTimeOut(r, r', outMsg)
+    //           || UponPrepare(r, r', outMsg)
+    //           || UponPreCommit(r, r', outMsg)
+    //           || UponCommit(r, r', outMsg)
+    //           || UponDecide(r, r', outMsg)
+    //           ) 
+    // ensures ValidReplicaState(r')
+    // {
+    //     LemmaReplicaNextSubIsValid(r, r', outMsg);
+    // }
 
-    lemma LemmaValidationHoldsInPreparePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponPrepare(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-    }
+    // lemma LemmaValidationHoldsInPreparePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponPrepare(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    // }
 
-    lemma LemmaVarStableInPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponPreCommit(r, r', outMsg)
-    ensures r'.viewNum == r.viewNum
-    ensures r'.commitQC == r.commitQC
-    ensures r'.bc == r.bc
-    ensures r'.id == r.id
-    ensures r'.msgReceived == r.msgReceived
-    {
+    // lemma LemmaVarStableInPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponPreCommit(r, r', outMsg)
+    // ensures r'.viewNum == r.viewNum
+    // ensures r'.commitQC == r.commitQC
+    // ensures r'.bc == r.bc
+    // ensures r'.id == r.id
+    // ensures r'.msgReceived == r.msgReceived
+    // {
 
-    }
+    // }
 
-    lemma LemmaVarStableInCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponCommit(r, r', outMsg)
-    ensures r'.viewNum == r.viewNum
-    ensures r'.prepareQC == r.prepareQC
-    ensures r'.bc == r.bc
-    ensures r'.id == r.id
-    ensures r'.msgReceived == r.msgReceived
-    {
-        assert r'.viewNum == r.viewNum;
-        assert r'.prepareQC == r.prepareQC;
-        assert r'.bc == r.bc;
-        assert r'.id == r.id;
-        assert r'.msgReceived == r.msgReceived;
-    }
+    // lemma LemmaVarStableInCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponCommit(r, r', outMsg)
+    // ensures r'.viewNum == r.viewNum
+    // ensures r'.prepareQC == r.prepareQC
+    // ensures r'.bc == r.bc
+    // ensures r'.id == r.id
+    // ensures r'.msgReceived == r.msgReceived
+    // {
+    //     assert r'.viewNum == r.viewNum;
+    //     assert r'.prepareQC == r.prepareQC;
+    //     assert r'.bc == r.bc;
+    //     assert r'.id == r.id;
+    //     assert r'.msgReceived == r.msgReceived;
+    // }
 
-    lemma LemmaValidationHoldsInPreCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponPreCommit(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-        NoOuterClient();
-        // var leader := leader(r.viewNum);
-        // assert r'.viewNum > 0;
-        // assert r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC;
-        // assert (r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC
-        //     ) by {
-        //         if leader == r.id {
-        //             if r'.prepareQC.Cert? {
-        //                 assert ValidQC(r'.prepareQC);
-        //                 // assert r'.prepareQC.cType == MT_Prepare;
-        //                 // assert r'.msgReceived == r.msgReceived;
-        //             }
-        //         }
-        //         else {
-        //             if r'.prepareQC.Cert? {
-        //                 assert ValidQC(r'.prepareQC);
-        //             }
-        //         }
-        // }
+    // lemma LemmaValidationHoldsInPreCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponPreCommit(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    //     NoOuterClient();
+    //     // var leader := leader(r.viewNum);
+    //     // assert r'.viewNum > 0;
+    //     // assert r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC;
+    //     // assert (r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC
+    //     //     ) by {
+    //     //         if leader == r.id {
+    //     //             if r'.prepareQC.Cert? {
+    //     //                 assert ValidQC(r'.prepareQC);
+    //     //                 // assert r'.prepareQC.cType == MT_Prepare;
+    //     //                 // assert r'.msgReceived == r.msgReceived;
+    //     //             }
+    //     //         }
+    //     //         else {
+    //     //             if r'.prepareQC.Cert? {
+    //     //                 assert ValidQC(r'.prepareQC);
+    //     //             }
+    //     //         }
+    //     // }
         
-        // assert (r'.commitQC.Cert? ==>
-        //                         && ValidQC(r'.commitQC)
-        //                         && r'.commitQC.cType == MT_PreCommit
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.commitQC
-        //     );
+    //     // assert (r'.commitQC.Cert? ==>
+    //     //                         && ValidQC(r'.commitQC)
+    //     //                         && r'.commitQC.cType == MT_PreCommit
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.commitQC
+    //     //     );
 
-        // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
-        //         || (exists m | && m in r'.msgReceived
-        //                     && m.justify.Cert?
-        //                     && m.justify.cType.MT_Commit?
-        //                     && ValidQC(m.justify)
-        //                     ::
-        //                     r'.bc <= getAncestors(m.justify.block)
-        //         )
-        //  );
+    //     // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+    //     //         || (exists m | && m in r'.msgReceived
+    //     //                     && m.justify.Cert?
+    //     //                     && m.justify.cType.MT_Commit?
+    //     //                     && ValidQC(m.justify)
+    //     //                     ::
+    //     //                     r'.bc <= getAncestors(m.justify.block)
+    //     //         )
+    //     //  );
 
-        // assert |r.bc| > 0;
-        // assert r.bc[0] == M_SpecTypes.Genesis_Block;
+    //     // assert |r.bc| > 0;
+    //     // assert r.bc[0] == M_SpecTypes.Genesis_Block;
 
-        // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
-        //     NoOuterClient();
-        // }
-    }
+    //     // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
+    //     //     NoOuterClient();
+    //     // }
+    // }
 
-    lemma LemmaValidationHoldsInCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponCommit(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-        NoOuterClient();
-        // var leader := leader(r.viewNum);
-        // assert r'.viewNum > 0;
-        // assert r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC;
-        // assert (r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC
-        //     ) by {
-        //         if leader == r.id {
-        //             if r'.prepareQC.Cert? {
-        //                 assert ValidQC(r'.prepareQC);
-        //                 // assert r'.prepareQC.cType == MT_Prepare;
-        //                 // assert r'.msgReceived == r.msgReceived;
-        //             }
-        //         }
-        //         else {
-        //             if r'.prepareQC.Cert? {
-        //                 assert ValidQC(r'.prepareQC);
-        //             }
-        //         }
-        // }
+    // lemma LemmaValidationHoldsInCommitPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponCommit(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    //     NoOuterClient();
+    //     // var leader := leader(r.viewNum);
+    //     // assert r'.viewNum > 0;
+    //     // assert r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC;
+    //     // assert (r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC
+    //     //     ) by {
+    //     //         if leader == r.id {
+    //     //             if r'.prepareQC.Cert? {
+    //     //                 assert ValidQC(r'.prepareQC);
+    //     //                 // assert r'.prepareQC.cType == MT_Prepare;
+    //     //                 // assert r'.msgReceived == r.msgReceived;
+    //     //             }
+    //     //         }
+    //     //         else {
+    //     //             if r'.prepareQC.Cert? {
+    //     //                 assert ValidQC(r'.prepareQC);
+    //     //             }
+    //     //         }
+    //     // }
         
-        // assert (r'.commitQC.Cert? ==>
-        //                         && ValidQC(r'.commitQC)
-        //                         && r'.commitQC.cType == MT_PreCommit
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.commitQC
-        //     );
+    //     // assert (r'.commitQC.Cert? ==>
+    //     //                         && ValidQC(r'.commitQC)
+    //     //                         && r'.commitQC.cType == MT_PreCommit
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.commitQC
+    //     //     );
 
-        // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
-        //         || (exists m | && m in r'.msgReceived
-        //                     && m.justify.Cert?
-        //                     && m.justify.cType.MT_Commit?
-        //                     && ValidQC(m.justify)
-        //                     ::
-        //                     r'.bc <= getAncestors(m.justify.block)
-        //         )
-        //  );
+    //     // assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+    //     //         || (exists m | && m in r'.msgReceived
+    //     //                     && m.justify.Cert?
+    //     //                     && m.justify.cType.MT_Commit?
+    //     //                     && ValidQC(m.justify)
+    //     //                     ::
+    //     //                     r'.bc <= getAncestors(m.justify.block)
+    //     //         )
+    //     //  );
 
-        // assert |r.bc| > 0;
-        // assert r.bc[0] == M_SpecTypes.Genesis_Block;
-        // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
-        //     NoOuterClient();
-        // }
-    }
+    //     // assert |r.bc| > 0;
+    //     // assert r.bc[0] == M_SpecTypes.Genesis_Block;
+    //     // assert forall m | m in r'.msgSent :: ValidMsg(m) by {
+    //     //     NoOuterClient();
+    //     // }
+    // }
 
-    lemma LemmaValidationHoldsInDecidePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponDecide(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-        var leader := leader(r.viewNum);
-        assert r'.viewNum > 0;
-        // assert Inv_Blockchain_Inner_Consistency(r'.bc);
-        assert && |r'.bc| > 0
-               && r'.bc[0] == M_SpecTypes.Genesis_Block;
+    // lemma LemmaValidationHoldsInDecidePhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponDecide(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    //     var leader := leader(r.viewNum);
+    //     assert r'.viewNum > 0;
+    //     // assert Inv_Blockchain_Inner_Consistency(r'.bc);
+    //     assert && |r'.bc| > 0
+    //            && r'.bc[0] == M_SpecTypes.Genesis_Block;
         
-        // assert r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC;
-        // assert (r'.prepareQC.Cert? ==>
-        //                         && ValidQC(r'.prepareQC)
-        //                         && r'.prepareQC.cType == MT_Prepare
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.prepareQC
-            // ) by {
-            //     if leader == r.id {
-            //         if r'.prepareQC.Cert? {
-            //             assert ValidQC(r'.prepareQC);
-            //             // assert r'.prepareQC.cType == MT_Prepare;
-            //             // assert r'.msgReceived == r.msgReceived;
-            //         }
-            //     }
-            //     else {
-            //         if r'.prepareQC.Cert? {
-            //             assert ValidQC(r'.prepareQC);
-            //         }
-            //     }
-        // }
+    //     // assert r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC;
+    //     // assert (r'.prepareQC.Cert? ==>
+    //     //                         && ValidQC(r'.prepareQC)
+    //     //                         && r'.prepareQC.cType == MT_Prepare
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.prepareQC
+    //         // ) by {
+    //         //     if leader == r.id {
+    //         //         if r'.prepareQC.Cert? {
+    //         //             assert ValidQC(r'.prepareQC);
+    //         //             // assert r'.prepareQC.cType == MT_Prepare;
+    //         //             // assert r'.msgReceived == r.msgReceived;
+    //         //         }
+    //         //     }
+    //         //     else {
+    //         //         if r'.prepareQC.Cert? {
+    //         //             assert ValidQC(r'.prepareQC);
+    //         //         }
+    //         //     }
+    //     // }
         
-        // assert (r'.commitQC.Cert? ==>
-        //                         && ValidQC(r'.commitQC)
-        //                         && r'.commitQC.cType == MT_PreCommit
-        //                         && exists m | m in r'.msgReceived
-        //                                     ::
-        //                                     && m.justify == r'.commitQC
-        //     );
+    //     // assert (r'.commitQC.Cert? ==>
+    //     //                         && ValidQC(r'.commitQC)
+    //     //                         && r'.commitQC.cType == MT_PreCommit
+    //     //                         && exists m | m in r'.msgReceived
+    //     //                                     ::
+    //     //                                     && m.justify == r'.commitQC
+    //     //     );
 
-        assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
-                || (exists m | && m in r'.msgReceived
-                            // && m.mType.MT_Decide?
-                            && m.justify.Cert?
-                            && m.justify.cType.MT_Commit?
-                            && ValidQC(m.justify)
-                            // && m.justify.block.Block?
-                            ::
-                            r'.bc <= getAncestors(m.justify.block)
-                )
-         ) by {
-            if leader != r.id {
-                var matchMsgs := getMatchMsg(r.msgReceived, MT_Commit, r.viewNum);
-                var splitSets := splitMsgByBlocks(matchMsgs);
-                var maxSet := getMaxLengthSet(splitSets);
+    //     assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+    //             || (exists m | && m in r'.msgReceived
+    //                         // && m.mType.MT_Decide?
+    //                         && m.justify.Cert?
+    //                         && m.justify.cType.MT_Commit?
+    //                         && ValidQC(m.justify)
+    //                         // && m.justify.block.Block?
+    //                         ::
+    //                         r'.bc <= getAncestors(m.justify.block)
+    //             )
+    //      ) by {
+    //         if leader != r.id {
+    //             var matchMsgs := getMatchMsg(r.msgReceived, MT_Commit, r.viewNum);
+    //             var splitSets := splitMsgByBlocks(matchMsgs);
+    //             var maxSet := getMaxLengthSet(splitSets);
 
-                var matchQCs := getMatchQC(r.msgReceived, MT_Decide, MT_Commit, r.viewNum);
-                // assert |matchQCs| <= 1;
-                assert r.msgReceived <= r'.msgReceived;
-                if |matchQCs| > 0 {
-                    // assert |matchQCs| == 1;
-                    var m_qc :| m_qc in matchQCs;
-                    var match_msg :| && match_msg in r.msgReceived
-                                     && match_msg.justify == m_qc;
-                    // assert matchQCs <= r'.msgReceived;
-                    var ancestors := getAncestors(m_qc.block);
-                    // if |ancestors| <= |r.bc| {
-                    //     assert r' == r;
-                    // }
-                    assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
-                            || (exists m | && m in r'.msgReceived
-                                        // && m.mType.MT_Decide?
-                                        && m.justify.Cert?
-                                        && m.justify.cType.MT_Commit?
-                                        && ValidQC(m.justify)
-                                        // && m.justify.block.Block?
-                                        ::
-                                        r'.bc <= getAncestors(m.justify.block)
-                                )
-                            );
-                } else {
-                    assert r' == r;
-                }
-            } else {
+    //             var matchQCs := getMatchQC(r.msgReceived, MT_Decide, MT_Commit, r.viewNum);
+    //             // assert |matchQCs| <= 1;
+    //             assert r.msgReceived <= r'.msgReceived;
+    //             if |matchQCs| > 0 {
+    //                 // assert |matchQCs| == 1;
+    //                 var m_qc :| m_qc in matchQCs;
+    //                 var match_msg :| && match_msg in r.msgReceived
+    //                                  && match_msg.justify == m_qc;
+    //                 // assert matchQCs <= r'.msgReceived;
+    //                 var ancestors := getAncestors(m_qc.block);
+    //                 // if |ancestors| <= |r.bc| {
+    //                 //     assert r' == r;
+    //                 // }
+    //                 assert (|| r'.bc == [M_SpecTypes.Genesis_Block]
+    //                         || (exists m | && m in r'.msgReceived
+    //                                     // && m.mType.MT_Decide?
+    //                                     && m.justify.Cert?
+    //                                     && m.justify.cType.MT_Commit?
+    //                                     && ValidQC(m.justify)
+    //                                     // && m.justify.block.Block?
+    //                                     ::
+    //                                     r'.bc <= getAncestors(m.justify.block)
+    //                             )
+    //                         );
+    //             } else {
+    //                 assert r' == r;
+    //             }
+    //         } else {
 
-            }
-         }
-    }
+    //         }
+    //      }
+    // }
 
 
-    lemma LemmaValidationHoldsInNewViewPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires UponNextView(r, r', outMsg)
-    ensures ValidReplicaState(r')
-    {
-    }
+    // lemma LemmaValidationHoldsInNewViewPhase(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires UponNextView(r, r', outMsg)
+    // ensures ValidReplicaState(r')
+    // {
+    //     NoOuterClient();
+    //     assert && (forall m | m in r'.msgSent :: ValidMsg(m));
+    // }
 
     // predicate UponPrepare(r : ReplicaState, r' : ReplicaState, outMsg: set<Msg>)
     // requires ValidReplicaState(r)
@@ -628,7 +631,7 @@ module M_Replica {
                 var highQC := getHighQC(matchMsgs);
                 assert ValidQC(highQC);
                 var proposal := getNewBlock(highQC.block);
-                var proposeMsg := Msg(MT_Prepare, r.viewNum, proposal, highQC, SigNone);
+                var proposeMsg := Msg(r.id, MT_Prepare, r.viewNum, proposal, highQC, SigNone);
                 // var matchProposals := getMatchProposalMsg(r.msgReceived + {proposeMsg}, r.viewNum);
                 && outMsg == filteredVotes + {proposeMsg}
                 && r' == r.(msgSent := r.msgSent + filteredVotes + {proposeMsg})
@@ -644,15 +647,6 @@ module M_Replica {
             && r' == r.(msgSent := r.msgSent + outMsg)
     }
 
-    lemma setEqualityTest<T>(s1 : set<T>, s2 : set<T>, p : T -> bool)
-    requires s1 == s2
-    ensures (forall e | e in s1 
-                    :: p(e))
-            ==>
-            (forall e | e in s2
-                    :: p(e))
-    {}
-
     ghost predicate UponPreCommit(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     {
@@ -665,7 +659,7 @@ module M_Replica {
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                var vote := buildVoteMsg(MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
                 var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_Prepare, r.viewNum);
                 // What if these message contain different voted blocks?
                 // Split thess message by responding block, and get the group with the most elements.
@@ -683,7 +677,7 @@ module M_Replica {
                     var sgns := ExtractSignatrues(maxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                     assert ValidQC(prepareQC);
-                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
                     assert ValidQC(m_qc);
                     assert ValidPrecommitVote(vote);
                     assert ValidPrecommitRequest(precommitMsg);
@@ -706,7 +700,7 @@ module M_Replica {
                     var sgns := ExtractSignatrues(maxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                     // assert ValidQC(prepareQC);
-                    var precommitMsg := Msg(MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
                     assert ValidPrecommitRequest(precommitMsg);
                     && outMsg == {precommitMsg}
                     && r' == r.(msgSent := r.msgSent + {precommitMsg})
@@ -726,7 +720,7 @@ module M_Replica {
                                   && ValidMsg(m)
                                   && m.justify == m_qc;
                                 
-                var vote := buildVoteMsg(MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
                 NoOuterClient();
                 assert ValidPrecommitVote(vote);
                 && outMsg == {vote}
@@ -756,14 +750,14 @@ module M_Replica {
             then 
                 var m_qc :| m_qc in matchQCs;
 
-                var vote := buildVoteMsg(MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 then
                     Axiom_Common_Constraints();
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                    var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
+                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
                     assert ValidQC(precommitQC);
                     assert ValidQC(m_qc);
                     assert ValidCommitVote(vote);
@@ -782,7 +776,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                    var commitMsg := Msg(MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
+                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
                     // assert ValidQC(r'.prepareQC);
                     && outMsg == {commitMsg}
                     && r' == r.(msgSent := r.msgSent + {commitMsg})
@@ -797,7 +791,7 @@ module M_Replica {
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                var vote := buildVoteMsg(MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
                 && outMsg == {vote}
                 && r' == r.(commitQC := m_qc,
                             msgSent := r.msgSent + {vote})
@@ -828,7 +822,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var commitQC := Cert(MT_Commit, m.viewNum, m.block, sgns);
-                    var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
+                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
                     assert ValidQC(commitQC);
                     && outMsg == {decideMsg}
                     && r' == r.(msgSent := r.msgSent + {decideMsg})
@@ -863,7 +857,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var commitQC := Cert(MT_Commit, m.viewNum, m.block, sgns);
-                    var decideMsg := Msg(MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
+                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
                     && r' == r.(msgSent := r.msgSent + {decideMsg})
                     && outMsg == {decideMsg}
                 else
@@ -898,7 +892,7 @@ module M_Replica {
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     {
-        var newViewMsg := Msg(MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
+        var newViewMsg := Msg(r.id, MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
         && r' == r.(viewNum := r.viewNum + 1,
                     msgSent := r.msgSent + {newViewMsg})
         && outMsg == {newViewMsg}
@@ -1014,23 +1008,28 @@ module M_Replica {
         r.msgSent
     }
 
-    lemma LemmaReplicaVoteCommitOnlyWhenReceiveValidPrecommitQC(r : ReplicaState,
-                                                                r' : ReplicaState,
-                                                                outMsg : set<Msg>)
-    requires ValidReplicaState(r)
-    requires ReplicaNextSubStep(r, r', outMsg)
-    ensures forall m |  && m in outMsg 
-                        && ValidCommitVote(m)
-                    :: 
-                        && UponCommit(r, r', outMsg)
-                        && (exists m2 | m2 in r'.msgReceived
-                                     :: 
-                                        && ValidQC(m2.justify)
-                                        && m2.justify.cType.MT_PreCommit?
-                                        && m2.justify.block == m.partialSig.block
-                                        && m2.justify.viewNum == m.partialSig.viewNum)
-    {
-
+    function getReplicaID(r : ReplicaState) : (id : Address)
+    { 
+        r. id
     }
+
+    // lemma LemmaReplicaVoteCommitOnlyWhenReceiveValidPrecommitQC(r : ReplicaState,
+    //                                                             r' : ReplicaState,
+    //                                                             outMsg : set<Msg>)
+    // requires ValidReplicaState(r)
+    // requires ReplicaNextSubStep(r, r', outMsg)
+    // ensures forall m |  && m in outMsg 
+    //                     && ValidCommitVote(m)
+    //                 :: 
+    //                     && UponCommit(r, r', outMsg)
+    //                     && (exists m2 | m2 in r'.msgReceived
+    //                                  :: 
+    //                                     && ValidQC(m2.justify)
+    //                                     && m2.justify.cType.MT_PreCommit?
+    //                                     && m2.justify.block == m.partialSig.block
+    //                                     && m2.justify.viewNum == m.partialSig.viewNum)
+    // {
+
+    // }
 
 }

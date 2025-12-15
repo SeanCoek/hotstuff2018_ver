@@ -12,6 +12,13 @@ module M_AuxilarilyFunc {
      */
     function setUnionOnSeq<T>(sets : seq<set<T>>) : (r : set<T>)
     ensures |sets| > 0 ==> r == sets[0] + setUnionOnSeq(sets[1..])
+    ensures |sets| > 0 ==> (forall i | 0 <= i < |sets| :: sets[i] <= r)
+    ensures |sets| > 0 ==> (forall x | x in r :: (
+                                                    exists i | 0 <= i < |sets|
+                                                            ::
+                                                               x in sets[i]
+                                                )
+                            )
     {
         if sets == [] then
             {}
@@ -24,6 +31,7 @@ module M_AuxilarilyFunc {
     ensures a + u == setUnionOnSeq([a] + s)
     {
     }
+
 
     // /**
     //  * @returns : a seq containing all elements in a set
@@ -71,10 +79,15 @@ module M_AuxilarilyFunc {
         && qc.viewNum == 0
     }
 
-    function getInitialMsg() : (m : Msg)
+    function getInitialMsg(sender : Address) : (m : Msg)
     ensures ValidNewView(m)
     {
-        Msg(MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone)
+        Msg(sender, MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone)
+    }
+
+    function getMultiInitialMsg(senders : set<Address>) : (r : set<Msg>)
+    {
+        set r | r in senders :: getInitialMsg(r)
     }
 
     /**
@@ -589,6 +602,7 @@ module M_AuxilarilyFunc {
 
     predicate ValidNewView(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_NewView?
             // && ( 
                 // || (
@@ -603,7 +617,7 @@ module M_AuxilarilyFunc {
 
     predicate ValidProposal(m : Msg)
     {
-        // && ValidMsg(m)
+        && m.sender in All_Nodes
         && m.mType.MT_Prepare?
         && m.partialSig.SigNone?
         && ValidQC(m.justify)
@@ -614,6 +628,7 @@ module M_AuxilarilyFunc {
 
     predicate ValidPrepareVote(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_Prepare?
         && m.justify.CertNone?
         && m.block.Block?
@@ -622,10 +637,12 @@ module M_AuxilarilyFunc {
         && m.partialSig.block == m.block
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
+        && m.sender == m.partialSig.signer
     }
 
     predicate ValidPrecommitRequest(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_PreCommit?
         && m.partialSig.SigNone?
         && ValidQC(m.justify)
@@ -636,6 +653,7 @@ module M_AuxilarilyFunc {
 
     predicate ValidPrecommitVote(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_PreCommit?
         && m.justify.CertNone?
         && m.block.Block?
@@ -644,10 +662,12 @@ module M_AuxilarilyFunc {
         && m.partialSig.block == m.block
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
+        && m.sender == m.partialSig.signer
     }
 
     predicate ValidCommitRequest(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_Commit?
         && m.partialSig.SigNone?
         && ValidQC(m.justify)
@@ -658,6 +678,7 @@ module M_AuxilarilyFunc {
 
     predicate ValidCommitVote(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_Commit?
         && m.justify.CertNone?
         && m.block.Block?
@@ -666,10 +687,12 @@ module M_AuxilarilyFunc {
         && m.partialSig.block == m.block
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
+        && m.sender == m.partialSig.signer
     }
 
     predicate ValidDecideMsg(m : Msg)
     {
+        && m.sender in All_Nodes
         && m.mType.MT_Decide?
         && m.partialSig.SigNone?
         && ValidQC(m.justify)
@@ -847,14 +870,14 @@ module M_AuxilarilyFunc {
         else [f(s[0])] + mapSeq(s[1..], f)
     }
 
-    function buildMsg(mType : MsgType, node : Block, qc : Cert, viewNum : nat) : (m : Msg)
+    function buildMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat) : (m : Msg)
     {
-        Msg(mType, viewNum, node, qc, SigNone)
+        Msg(sender, mType, viewNum, node, qc, SigNone)
     }
 
-    function buildVoteMsg(mType : MsgType, node : Block, qc : Cert, viewNum : nat, signer : Address) : (m : Msg)
+    function buildVoteMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat, signer : Address) : (m : Msg)
     {
-        Msg(mType, viewNum, node, qc,
+        Msg(sender, mType, viewNum, node, qc,
             Signature(signer, mType, viewNum, node))
     }
 
@@ -882,9 +905,9 @@ module M_AuxilarilyFunc {
             && lockedQC.Cert?
             && safeNode(proposal.block, proposal.justify, lockedQC)
         then 
-            buildVoteMsg(MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)
+            buildVoteMsg(id, MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)
         else 
-            buildVoteMsg(MT_Prepare, EmptyBlock, CertNone, proposal.viewNum, id)
+            buildVoteMsg(id, MT_Prepare, EmptyBlock, CertNone, proposal.viewNum, id)
     }
 
     function proposalVoteFilter(votes : set<Msg>) : (r : set<Msg>)

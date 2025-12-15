@@ -75,4 +75,24 @@ module M_ProofTactic
     {
         // assert |outMsg| <= 1;
     }
+
+    lemma LemmaEqualityTransitiveInSeq<T> (s : seq<T>)
+    requires |s| > 0
+    requires forall i | 0 <= i < |s|-1 :: s[i] == s[i+1]
+    ensures forall i | 0 <= i <= |s|-1 :: s[0] == s[i]
+    ensures forall i, j | && 0 <= i <= |s|-1
+                          && 0 <= j <= |s|-1
+                        ::
+                          s[i] == s[j]
+    {
+        forall i | 0 <= i <= |s|-1
+        ensures s[0] == s[i] {
+            if |s| == 1 {
+            }
+            else
+            {
+                LemmaEqualityTransitiveInSeq(s[1..]);
+            }
+        }
+    }
 }

@@ -5,6 +5,8 @@ include "Trace.dfy"
 include "Replica.dfy"
 include "Axioms.dfy"
 include "common/sets.dfy"
+include "Lemmas_Replica.dfy"
+include "Lemmas_System.dfy"
 
 module M_Lemma {
     import opened M_SpecTypes
@@ -14,6 +16,8 @@ module M_Lemma {
     import opened M_Replica
     import opened M_Axiom
     import opened M_Set
+    import opened M_Lemmas_Replica
+    import opened M_Lemmas_System
 
     /*>>>>>>>>>>>>>>>>>>>>>>> START : Lemmas For Message Transmisson  */
 
@@ -396,6 +400,18 @@ module M_Lemma {
         assert IsHonest(ss, honest);
     }
 
-
+    lemma LemmaMsgMustBeSentIfAppearedInSystemBuffer(ss : SystemState)
+    requires Reachable(ss)
+    ensures forall m | m in ss.msgSent && ValidMsg(m)
+                    ::
+                       m in ss.nodeStates[m.sender].msgSent
+    {
+        LemmaReachableStateIsValid(ss);
+        forall m | m in ss.msgSent && ValidMsg(m)
+        ensures m in ss.nodeStates[m.sender].msgSent
+        {
+            
+        }
+    }
 
 }

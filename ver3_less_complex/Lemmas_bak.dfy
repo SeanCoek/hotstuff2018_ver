@@ -2,12 +2,16 @@ include "Type.dfy"
 include "Auxilarily.dfy"
 include "System.dfy"
 include "Trace.dfy"
+include "Lemmas_Replica.dfy"
+include "Lemmas_System.dfy"
 
 module M_Lemma_bak {
     import opened M_SpecTypes
     import opened M_AuxilarilyFunc
     import opened M_System
     import opened M_Trace
+    import opened M_Lemmas_Replica
+    import opened M_Lemmas_System
 
     // lemma{:axiom} Axiom_Byz_Constraints()
     // ensures |Adversary_Nodes| <= f(|All_Nodes|)

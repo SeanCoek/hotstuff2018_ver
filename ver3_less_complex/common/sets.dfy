@@ -102,6 +102,13 @@ module M_Set {
 
     // }
 
-
+    lemma setEqualityTest<T>(s1 : set<T>, s2 : set<T>, p : T -> bool)
+    requires s1 == s2
+    ensures (forall e | e in s1 
+                    :: p(e))
+            ==>
+            (forall e | e in s2
+                    :: p(e))
+    {}
 
 }

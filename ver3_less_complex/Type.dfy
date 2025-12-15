@@ -29,6 +29,7 @@ module M_SpecTypes {
 
 
   datatype Msg = Msg(
+    sender : Address,
     mType : MsgType,
     viewNum : nat,
     block : Block,
