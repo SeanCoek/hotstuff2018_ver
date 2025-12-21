@@ -130,6 +130,7 @@ module M_Replica {
             if |matchMsgs| > 0
             then
                 var highQC := getHighQC(matchMsgs);
+                assert r.viewNum > highQC.viewNum;
                 assert ValidQC(highQC);
                 var proposal := getNewBlock(highQC.block);
                 var proposeMsg := Msg(r.id, MT_Prepare, r.viewNum, proposal, highQC, SigNone);
@@ -394,6 +395,7 @@ module M_Replica {
     requires ValidReplicaState(r)
     {
         var newViewMsg := Msg(r.id, MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
+        assert r.viewNum >= r.prepareQC.viewNum;
         && r' == r.(viewNum := r.viewNum + 1,
                     msgSent := r.msgSent + {newViewMsg})
         && outMsg == {newViewMsg}
@@ -406,11 +408,11 @@ module M_Replica {
         // TODO: invarians about a replica state
         //
         // && Inv_Node_Constraint()
-        // && r.id in M_SpecTypes.All_Nodes
         && r.viewNum > 0
         // If a replica accepted a Prepare certificate,
         // then it must received a PreCommit Message from the leader before, together with a valid Prepare certificate
         && ValidQC(r.prepareQC)
+        && r.viewNum >= r.prepareQC.viewNum
         && (r.prepareQC.Cert? ==>
                                 && ValidQC(r.prepareQC)
                                 && r.prepareQC.cType == MT_Prepare
@@ -450,15 +452,14 @@ module M_Replica {
         )
         && |r.bc| > 0
         && r.bc[0] == M_SpecTypes.Genesis_Block
-        // && InvReplicaVote(s)
         && (forall m | m in r.msgSent :: ValidMsg(m))
         && (forall m | && m in r.msgSent
-                       && ValidCommitVote(m)
-                    :: 
+                       && ValidPrepareVote(m)
+                    ::
                        exists m2 | m2 in r.msgReceived
                                 ::
-                                   && ValidCommitRequest(m2)
-                                   && corrVoteMsgAndToVotedMsg(m, m2))
+                                  && ValidProposal(m2)
+                                  && extension(m2.block, m2.justify.block))
         && (forall m | && m in r.msgSent
                        && ValidPrecommitVote(m)
                     :: 
@@ -466,22 +467,13 @@ module M_Replica {
                                 ::
                                    && ValidPrecommitRequest(m2)
                                    && corrVoteMsgAndToVotedMsg(m, m2))
-    }
-
-    ghost predicate InvReplicaVote(r : ReplicaState)
-    {
-        forall m | && m in r.msgSent
-                   && ValidMsg(m)
-                :: 
-                   && m.partialSig.Signature?
-                   && m.partialSig.mType.MT_Commit?
-                   ==> 
-                   exists m2 | m2 in r.msgReceived
-                            ::
-                               && ValidMsg(m2)
-                               && ValidQC(m2.justify)
-                               && m2.justify.cType.MT_PreCommit?
-                               && m2.justify.block == m.partialSig.block
+        && (forall m | && m in r.msgSent
+                       && ValidCommitVote(m)
+                    :: 
+                       exists m2 | m2 in r.msgReceived
+                                ::
+                                   && ValidCommitRequest(m2)
+                                   && corrVoteMsgAndToVotedMsg(m, m2))
     }
 
     /**

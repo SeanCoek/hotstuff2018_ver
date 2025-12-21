@@ -604,15 +604,11 @@ module M_AuxilarilyFunc {
     {
         && m.sender in All_Nodes
         && m.mType.MT_NewView?
-            // && ( 
-                // || (
-                    && ValidQC(m.justify)
-                    && m.justify.cType.MT_Prepare?
-                // )
-                // || m.justify.CertNone?
-            // )
-            && m.partialSig.SigNone?
-            && m.block.EmptyBlock?
+        && ValidQC(m.justify)
+        && m.justify.cType.MT_Prepare?
+        && m.viewNum >= m.justify.viewNum
+        && m.partialSig.SigNone?
+        && m.block.EmptyBlock?
     }
 
     predicate ValidProposal(m : Msg)
@@ -622,6 +618,7 @@ module M_AuxilarilyFunc {
         && m.partialSig.SigNone?
         && ValidQC(m.justify)
         && m.justify.cType.MT_Prepare?
+        && m.viewNum > m.justify.viewNum
         && m.block.Block?
         && m.block.parent == m.justify.block
     }
@@ -899,8 +896,7 @@ module M_AuxilarilyFunc {
     requires ValidQC(lockedQC) || lockedQC.CertNone?
     // requires id in M_SpecTypes.All_Nodes
     {
-        if && proposal.block.Block?
-            && proposal.justify.Cert?
+        if 
             && extension(proposal.block, proposal.justify.block) 
             && lockedQC.Cert?
             && safeNode(proposal.block, proposal.justify, lockedQC)
@@ -918,6 +914,23 @@ module M_AuxilarilyFunc {
                 && ValidMsg(v)
                 && v.block.EmptyBlock? && v.partialSig.block.EmptyBlock?
                 :: v
+    }
+
+
+    predicate predHonestNodeInTwoQC(honest : set<Address>, qc1 : Cert, qc2 : Cert, r : Address)
+    requires ValidQC(qc1) && ValidQC(qc2)
+    {
+        var signers1 := getMajoritySignerInValidQC(qc1);
+        var signers2 := getMajoritySignerInValidQC(qc2);
+        r in signers1 * signers2 * honest
+    }
+
+    predicate predNodeInTwoQC(qc1 : Cert, qc2 : Cert, r : Address)
+    requires ValidQC(qc1) && ValidQC(qc2)
+    {
+        var signers1 := getMajoritySignerInValidQC(qc1);
+        var signers2 := getMajoritySignerInValidQC(qc2);
+        r in signers1 * signers2
     }
 
 }
