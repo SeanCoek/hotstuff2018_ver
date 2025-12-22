@@ -14,4 +14,5 @@ module M_Axiom {
 
     lemma{:axiom} NoOuterClient()
     ensures forall id : Address :: id in All_Nodes
+
 }

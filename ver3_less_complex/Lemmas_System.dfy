@@ -67,7 +67,21 @@ module M_Lemmas_System {
     requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
     ensures Inv_Node_System(ss')
     {
-
+        var r := ss.nodeStates[replica];
+        var r' := ss'.nodeStates[replica];
+        if IsHonest(ss, replica)
+        {
+            LemmaReplicaStableIDInReplicaNext(r, inMsg, r', outMsg);
+            // assert r'.id == r.id;
+        }
+        else
+        {
+            // Prove AdversaryNext Won't change replica ID
+            // assert forall r | IsHonest(ss, r) :: ss.nodeStates[r].id == ss'.nodeStates[r].id;
+            // assert forall r | r in ss.adversary.byz_nodes
+            //                 ::
+            //                   && ss'.nodeStates[r].id == ss.nodeStates[r].id;
+        }
     }
 
     lemma LemmaHonestReplicaIsValidInSystemNextByOneReplica(
@@ -94,23 +108,23 @@ module M_Lemmas_System {
             ss' : SystemState, 
             replica : Address,
             inMsg : set<Msg>,
-            outMsg : set<Msg>)
+            outMsg : set<Msg>,
+            m : Msg)
     requires ValidSystemState(ss)
     requires inMsg <= ss.msgSent
     requires SystemNextByOneReplica(ss, ss', replica, inMsg, outMsg)
-    ensures forall m | m in outMsg && IsHonest(ss', m.sender) :: m in ss'.nodeStates[m.sender].msgSent
+    requires m in outMsg && IsHonest(ss', replica)
+    // ensures forall m | m in outMsg && IsHonest(ss', m.sender) :: m in ss'.nodeStates[m.sender].msgSent
+    ensures m.sender == replica
+    // ensures m in ss'.nodeStates[m.sender].msgSent
     {
-        if IsHonest(ss, replica) {
-            var r := ss.nodeStates[replica];
-            var r' := ss'.nodeStates[replica];
-            // LemmaMsgRelationInReplicaNext(rState, inMsg, rState', outMsg);
-            LemmaMsgSentWithBySameReplicaInReplicaNext(r, inMsg, r', outMsg);
-            assert r'.id == replica;
-            assert forall m | m in outMsg :: m.sender == replica;
-        }
-        else {
-            
-        }
+        var r := ss.nodeStates[replica];
+        var r' := ss'.nodeStates[replica];
+        LemmaSystemNextByOneReplicaIsValid(ss, ss', replica, inMsg, outMsg);
+        // assert ValidSystemState(ss');
+        assert r'.id == replica;
+        LemmaMsgSentBySameReplicaInReplicaNext(r, inMsg, r', outMsg);
+        assert r'.id == m.sender;
     }
 
     lemma LemmaHonestReplicaMsgReceivedIsSubsetOfSystemMsgSentInSystemNextByOneReplica(

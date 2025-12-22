@@ -39,8 +39,14 @@ module M_System {
     predicate Inv_Node_System(ss : SystemState)
     {
         && Inv_Node_Constraint()
+        && Inv_ID_Consistent(ss)
         && ss.nodeStates.Keys == M_SpecTypes.All_Nodes
         && ss.adversary.byz_nodes == M_SpecTypes.Adversary_Nodes
+    }
+
+    predicate Inv_ID_Consistent(ss : SystemState)
+    {
+        forall r | r in ss.nodeStates.Keys :: ss.nodeStates[r].id == r
     }
 
     ghost predicate ValidSystemState(ss : SystemState)
@@ -86,7 +92,7 @@ module M_System {
         outMsg : set<Msg>)
     requires ValidSystemState(ss)
     {
-        && var msgReceivedSingleSet := set mr:Msg | mr in inMsg;
+        // && var msgReceivedSingleSet := set mr:Msg | mr in inMsg;
         && replica in ss.nodeStates.Keys
         // fixed set of replica
         && ss.nodeStates.Keys == ss'.nodeStates.Keys
@@ -95,14 +101,19 @@ module M_System {
             if IsHonest(ss, replica) then
                 && ss'.nodeStates == ss.nodeStates[replica := ss'.nodeStates[replica]]
                 && ss'.adversary == ss.adversary
-                && ReplicaNext(ss.nodeStates[replica], msgReceivedSingleSet, ss'.nodeStates[replica], outMsg)
+                && ReplicaNext(ss.nodeStates[replica], inMsg, ss'.nodeStates[replica], outMsg)
             else
                 // && ss'.nodeStates == ss.nodeStates
                 // assert replica in ss.adversary.byz_nodes;
-                && AdversaryNext(ss.adversary, msgReceivedSingleSet, ss'.adversary, outMsg)
+                && AdversaryNext(ss.adversary, inMsg, ss'.adversary, outMsg)
                 && (forall r | r in ss.adversary.byz_nodes
-                            :: && ss'.nodeStates[r].msgReceived == ss.nodeStates[r].msgReceived + msgReceivedSingleSet
-                               && ss'.nodeStates[r].msgSent == ss.nodeStates[r].msgSent + outMsg
+                            // :: && ss'.nodeStates[r].msgReceived == ss.nodeStates[r].msgReceived + inMsg
+                            //    && ss'.nodeStates[r].msgSent == ss.nodeStates[r].msgSent + outMsg
+                            :: 
+                                var rState := ss.nodeStates[r];
+                                var rState' := ss'.nodeStates[r];
+                                rState' == rState.(msgReceived := rState.msgReceived + inMsg,
+                                                   msgSent := rState.msgSent + outMsg)
                 )
                 && (forall r | IsHonest(ss, r)
                             :: ss'.nodeStates[r] == ss.nodeStates[r])

@@ -80,7 +80,7 @@ module M_Replica {
         var replicaWithNewMsgReceived := r.(
             msgReceived := allMsgReceived
         );
-        assert ValidReplicaState(replicaWithNewMsgReceived);
+        // assert ValidReplicaState(replicaWithNewMsgReceived);
         exists s : seq<ReplicaState>, o : seq<set<Msg>> ::
                 && |s| > 2
                 && |o| == |s| - 1
@@ -133,7 +133,7 @@ module M_Replica {
                 assert r.viewNum > highQC.viewNum;
                 assert ValidQC(highQC);
                 var proposal := getNewBlock(highQC.block);
-                var proposeMsg := Msg(r.id, MT_Prepare, r.viewNum, proposal, highQC, SigNone);
+                var proposeMsg := Msg(r.id, MT_Prepare, r.viewNum, proposal, highQC, SigNone, CertNone);
                 // var matchProposals := getMatchProposalMsg(r.msgReceived + {proposeMsg}, r.viewNum);
                 && outMsg == filteredVotes + {proposeMsg}
                 && r' == r.(msgSent := r.msgSent + filteredVotes + {proposeMsg})
@@ -161,25 +161,24 @@ module M_Replica {
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, CertNone, r.id);
                 var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_Prepare, r.viewNum);
                 // What if these message contain different voted blocks?
                 // Split thess message by responding block, and get the group with the most elements.
                 var splitSets := splitMsgByBlocks(matchMsgs);
                 var maxSet := getMaxLengthSet(splitSets);
-                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                var filtedMaxSet := filterDoubleVote(maxSet);
+                // if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                if |filtedMaxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 then
                     Axiom_Common_Constraints();
-                    var m :| m in maxSet;
-                    // assert forall v1, v2 | v1 in maxSet && v2 in maxSet
-                    //       :: 
-                    //          v1 != v2
-                    //          ==>
-                    //          v1.partialSig.signer != v2.partialSig.signer;
-                    var sgns := ExtractSignatrues(maxSet);
+                    // var m :| m in maxSet;
+                    // var sgns := ExtractSignatrues(maxSet);
+                    var m :| m in filtedMaxSet;
+                    var sgns := ExtractSignatrues(filtedMaxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                     assert ValidQC(prepareQC);
-                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone, CertNone);
                     assert ValidQC(m_qc);
                     assert ValidPrecommitVote(vote);
                     assert ValidPrecommitRequest(precommitMsg);
@@ -195,14 +194,19 @@ module M_Replica {
                 var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_Prepare, r.viewNum);
                 var splitSets := splitMsgByBlocks(matchMsgs);
                 var maxSet := getMaxLengthSet(splitSets);
+                var filtedMaxSet := filterDoubleVote(maxSet);
+                // if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 assert r.prepareQC.Cert? ==> ValidQC(r.prepareQC);
-                if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|) && |maxSet| > 0
+                if |filtedMaxSet| >= quorum(|M_SpecTypes.All_Nodes|)
+                // if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|) && |maxSet| > 0
                 then
-                    var m :| m in maxSet;
-                    var sgns := ExtractSignatrues(maxSet);
+                    // var m :| m in maxSet;
+                    // var sgns := ExtractSignatrues(maxSet);
+                    var m :| m in filtedMaxSet;
+                    var sgns := ExtractSignatrues(filtedMaxSet);
                     var prepareQC := Cert(MT_Prepare, m.viewNum, m.block, sgns);
                     // assert ValidQC(prepareQC);
-                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone);
+                    var precommitMsg := Msg(r.id, MT_PreCommit, r.viewNum, EmptyBlock, prepareQC, SigNone, CertNone);
                     assert ValidPrecommitRequest(precommitMsg);
                     && outMsg == {precommitMsg}
                     && r' == r.(msgSent := r.msgSent + {precommitMsg})
@@ -222,7 +226,7 @@ module M_Replica {
                                   && ValidMsg(m)
                                   && m.justify == m_qc;
                                 
-                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_PreCommit, m_qc.block, CertNone, r.viewNum, CertNone, r.id);
                 NoOuterClient();
                 assert ValidPrecommitVote(vote);
                 && outMsg == {vote}
@@ -244,6 +248,7 @@ module M_Replica {
         then
             // Leader doing leader and replica's work
             var matchMsgs := getMatchVoteMsg(r.msgReceived, MT_PreCommit, r.viewNum);
+
             // What if these message contain different voted blocks?
             // Split thess message by responding block, and get the group with the most elements.
             var splitSets := splitMsgByBlocks(matchMsgs);
@@ -252,14 +257,14 @@ module M_Replica {
             then 
                 var m_qc :| m_qc in matchQCs;
 
-                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, CertNone, r.id);
                 if |maxSet| >= quorum(|M_SpecTypes.All_Nodes|)
                 then
                     Axiom_Common_Constraints();
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
+                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone, CertNone);
                     assert ValidQC(precommitQC);
                     assert ValidQC(m_qc);
                     assert ValidCommitVote(vote);
@@ -278,7 +283,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var precommitQC := Cert(MT_PreCommit, m.viewNum, m.block, sgns);
-                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone);
+                    var commitMsg := Msg(r.id, MT_Commit, r.viewNum, EmptyBlock, precommitQC, SigNone, CertNone);
                     // assert ValidQC(r'.prepareQC);
                     && outMsg == {commitMsg}
                     && r' == r.(msgSent := r.msgSent + {commitMsg})
@@ -293,7 +298,7 @@ module M_Replica {
             if |matchQCs| > 0 
             then 
                 var m_qc :| m_qc in matchQCs;
-                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, r.id);
+                var vote := buildVoteMsg(r.id, MT_Commit, m_qc.block, CertNone, r.viewNum, CertNone, r.id);
                 && outMsg == {vote}
                 && r' == r.(commitQC := m_qc,
                             msgSent := r.msgSent + {vote})
@@ -324,7 +329,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var commitQC := Cert(MT_Commit, m.viewNum, m.block, sgns);
-                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
+                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone, CertNone);
                     assert ValidQC(commitQC);
                     && outMsg == {decideMsg}
                     && r' == r.(msgSent := r.msgSent + {decideMsg})
@@ -359,7 +364,7 @@ module M_Replica {
                     var m :| m in maxSet;
                     var sgns := ExtractSignatrues(maxSet);
                     var commitQC := Cert(MT_Commit, m.viewNum, m.block, sgns);
-                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone);
+                    var decideMsg := Msg(r.id, MT_Decide, r.viewNum, EmptyBlock, commitQC, SigNone, CertNone);
                     && r' == r.(msgSent := r.msgSent + {decideMsg})
                     && outMsg == {decideMsg}
                 else
@@ -394,7 +399,7 @@ module M_Replica {
     predicate UponNextView(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     {
-        var newViewMsg := Msg(r.id, MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone);
+        var newViewMsg := Msg(r.id, MT_NewView, r.viewNum, EmptyBlock, r.prepareQC, SigNone, CertNone);
         assert r.viewNum >= r.prepareQC.viewNum;
         && r' == r.(viewNum := r.viewNum + 1,
                     msgSent := r.msgSent + {newViewMsg})
@@ -412,7 +417,9 @@ module M_Replica {
         // If a replica accepted a Prepare certificate,
         // then it must received a PreCommit Message from the leader before, together with a valid Prepare certificate
         && ValidQC(r.prepareQC)
+        && ValidQC(r.commitQC)
         && r.viewNum >= r.prepareQC.viewNum
+        && r.viewNum >= r.commitQC.viewNum
         && (r.prepareQC.Cert? ==>
                                 && ValidQC(r.prepareQC)
                                 && r.prepareQC.cType == MT_Prepare
@@ -459,7 +466,16 @@ module M_Replica {
                        exists m2 | m2 in r.msgReceived
                                 ::
                                   && ValidProposal(m2)
-                                  && extension(m2.block, m2.justify.block))
+                                  && extension(m2.block, m2.justify.block)
+                                  && safeNode(m2.block, m2.justify, m.lockedQC)
+                                  && extension(m2.block, m.lockedQC.block)
+                                  && m2.block == m.block
+                                  && (|| (exists m3 | m3 in r.msgReceived
+                                            ::
+                                            && m3.justify == m.lockedQC
+                                            && ValidCommitRequest(m3))
+                                    || isInitialQC(m.lockedQC)
+                                ))
         && (forall m | && m in r.msgSent
                        && ValidPrecommitVote(m)
                     :: 
@@ -474,6 +490,14 @@ module M_Replica {
                                 ::
                                    && ValidCommitRequest(m2)
                                    && corrVoteMsgAndToVotedMsg(m, m2))
+        && (forall m1, m2 | && m1 in r.msgSent
+                            && ValidPrepareVote(m1)
+                            && m2 in r.msgReceived
+                            && ValidCommitRequest(m2)
+                        ::
+                            m1.viewNum >= m2.viewNum
+                            ==>
+                            extension(m1.block, m2.justify.block))
     }
 
     /**

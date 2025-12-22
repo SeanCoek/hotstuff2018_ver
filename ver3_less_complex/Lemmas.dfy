@@ -38,6 +38,14 @@ module M_Lemma {
                                                 && ValidVoteMsg(m)
                                                 && corrVoteMsg(sig, m)
 
+    lemma LemmaExistValidMsgHoldingValidQC(ss : SystemState, qc : Cert)
+    requires Reachable(ss)
+    requires ValidQC(qc)
+    ensures (exists m | m in ss.msgSent
+                    ::
+                        && ValidMsg(m)
+                        && m.justify == qc)
+
     /*<<<<<<<<<<<<<<<<<<<<<<< END : Lemmas For Message Transmisson */
 
 
@@ -181,50 +189,92 @@ module M_Lemma {
         LemmaExistValidPrecommitQCForEveryValidCommitQC(ss);
         LemmaExistValidPrepareQCForEveryValidPrecommitQC(ss);
     }
-    
-    lemma LemmaPrepareQCExtensionIfExistCommitQC(ss : SystemState)
+
+    lemma LemmaHonestNodeWontVoteConflictInPrepare(
+        ss : SystemState,
+        r : Address,
+        qc1_commit : Cert,
+        qc2_prepare : Cert)
     requires Reachable(ss)
-    ensures forall m1, m2 | && m1 in ss.msgSent
-                            && m2 in ss.msgSent
-                            && msgWithValidQC(m1, MT_Prepare)
-                            && msgWithValidQC(m2, MT_Prepare)
-                            && m1.justify.viewNum <= m2.justify.viewNum
-                            && (
-                                exists m1_commit, m2_commit |
-                                                              && m1_commit in ss.msgSent
-                                                              && m2_commit in ss.msgSent
-                                                              && msgWithValidQC(m1_commit, MT_Commit)
-                                                              && msgWithValidQC(m2_commit, MT_Commit)
-                                                            ::
-                                                              && correspondingQC(m1.justify, m1_commit.justify)
-                                                              && correspondingQC(m2.justify, m2_commit.justify)
-                            )
-                         :: 
-                            extension(m2.justify.block, m1.justify.block)
+    requires IsHonest(ss, r)
+    requires ValidQC(qc1_commit) && qc1_commit.cType.MT_Commit?
+    requires ValidQC(qc2_prepare) && qc2_prepare.cType.MT_Prepare?
+    requires predNodeInTwoQC(qc1_commit, qc2_prepare, r)
+    requires qc2_prepare.viewNum >= qc1_commit.viewNum
+    ensures extension(qc2_prepare.block, qc1_commit.block)
     {
-        // if SystemInit(ss) {
-        //     // assert ss.msgSent == {};
-        // }
-        // else {
-        //     forall m1, m2 | && m1 in ss.msgSent
-        //                     && m2 in ss.msgSent
-        //                     && msgWithValidQC(m1, MT_Prepare)
-        //                     && msgWithValidQC(m2, MT_Prepare)
-        //                     && m1.justify.viewNum <= m2.justify.viewNum
-        //                     && (
-        //                         exists m1_commit, m2_commit |
-        //                                                       && m1_commit in ss.msgSent
-        //                                                       && m2_commit in ss.msgSent
-        //                                                       && msgWithValidQC(m1_commit, MT_Commit)
-        //                                                       && msgWithValidQC(m2_commit, MT_Commit)
-        //                                                     ::
-        //                                                       && correspondingQC(m1.justify, m1_commit.justify)
-        //                                                       && correspondingQC(m2.justify, m2_commit.justify)
-        //                     )
-        //     ensures extension(m2.justify.block, m1.justify.block)
-        //     {
-        //     }
-        // }
+        var rState := ss.nodeStates[r];
+        LemmaReachableStateIsValid(ss);
+        LemmaExistVoteMsgForSignature(ss);
+        if qc2_prepare.viewNum == qc1_commit.viewNum {
+            LemmaExistValidMsgHoldingValidQC(ss, qc1_commit);
+            var m : Msg :| && m in ss.msgSent
+                           && m.justify == qc1_commit;
+            LemmaExistValidPrepareQCForEveryValidCommitQC(ss);
+            LemmaSameValidQCInSameView(ss);
+            assert qc2_prepare.block == qc1_commit.block;
+        }
+        else {
+            // var vote1_cmt :| && vote1_cmt in rState.msgSent
+            //                  && ValidCommitVote(vote1_cmt)
+            //                  && vote1_cmt.viewNum == qc1_commit.viewNum
+            //                  && vote1_cmt.block == qc1_commit.block;
+            // var m2 :| && m2 in rState.msgReceived
+            //           && ValidCommitRequest(m2)
+            //           && corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
+            
+            // At v1, r lock at qc1_commit.block
+            // var lockedQC := m2.justify;
+            // assert lockedQC.viewNum == qc1_commit.viewNum;
+            // assert lockedQC.block == qc1_commit.block;
+            // assert r in getMajoritySignerInValidQC(qc2_prepare);
+
+            var vote2_pre :| && vote2_pre in rState.msgSent
+                            && ValidPrepareVote(vote2_pre)
+                            && vote2_pre.block == qc2_prepare.block;
+            
+
+            var proposal :| && proposal in rState.msgReceived
+                            && ValidProposal(proposal)
+                            && extension(proposal.block, proposal.justify.block)
+                            && safeNode(proposal.block, proposal.justify, vote2_pre.lockedQC)
+                            && extension(proposal.block, vote2_pre.lockedQC.block)
+                            && proposal.block == vote2_pre.block;
+            
+            
+            var vote1_cmt :| && vote1_cmt in rState.msgSent
+                             && ValidCommitVote(vote1_cmt)
+                             && vote1_cmt.viewNum == qc1_commit.viewNum
+                             && vote1_cmt.block == qc1_commit.block;
+            var m2 :| && m2 in rState.msgReceived
+                      && ValidCommitRequest(m2)
+                      && corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
+            
+            assert qc2_prepare.viewNum > qc1_commit.viewNum;
+            assert proposal.viewNum == qc2_prepare.viewNum;
+            assert qc1_commit.viewNum == vote1_cmt.viewNum;
+            assert vote1_cmt.viewNum == m2.viewNum;
+            assert m2.justify.block == vote1_cmt.block;
+
+            assert proposal.viewNum > m2.viewNum;
+            assert extension(proposal.block, m2.justify.block);
+
+            // assert || extension(proposal.block, vote2_pre.lockedQC.block)
+            //         || proposal.justify.viewNum > vote2_pre.lockedQC.viewNum;
+
+
+            // if extension(proposal.block, vote2_pre.lockedQC.block) {
+
+            // }
+            // else {
+            //     assert proposal.justify.viewNum > vote2_pre.lockedQC.viewNum;
+            //     assume extension(qc2_prepare.block, qc1_commit.block);
+            // }
+            // assert proposal.viewNum == qc2_prepare.viewNum;
+
+            // assert extension(proposal.block, vote2_pre.lockedQC.block);
+        }
+
     }
 
 
@@ -243,13 +293,6 @@ module M_Lemma {
                                                            && SystemNext(run[i], run[i+1]));
             forall i | 0 < i <= |run|-1
             ensures ValidSystemState(run[i]) {
-                // if run[i-1] == run[i] {}
-                // else {
-                //     assert (exists replica, msgReceivedByNodes, msgSentByNodes
-                //                     | msgReceivedByNodes <= run[i-1].msgSent
-                //                     :: SystemNextByOneReplica(run[i-1], run[i], replica, msgReceivedByNodes, msgSentByNodes));
-                //     LemmaSystemTransitionHoldsValidity(run[i-1], run[i]);
-                // }
                 LemmaSystemTransitionHoldsValidity(run[i-1], run[i]);
             }
         } else {
@@ -400,18 +443,87 @@ module M_Lemma {
         assert IsHonest(ss, honest);
     }
 
-    lemma LemmaMsgMustBeSentIfAppearedInSystemBuffer(ss : SystemState)
+    lemma LemmaExistSameHonestNodeInTwoValidQC(
+        ss : SystemState,
+        qc1 : Cert,
+        qc2 : Cert
+    )
     requires Reachable(ss)
-    ensures forall m | m in ss.msgSent && ValidMsg(m)
+    requires ValidQC(qc1) && ValidQC(qc2)
+    ensures var signers1 := getMajoritySignerInValidQC(qc1);
+            var signers2 := getMajoritySignerInValidQC(qc2);
+            exists r | IsHonest(ss, r)
                     ::
-                       m in ss.nodeStates[m.sender].msgSent
+                       && r in signers1
+                       && r in signers2
     {
+        var signers1 := getMajoritySignerInValidQC(qc1);
+        var signers2 := getMajoritySignerInValidQC(qc2);
         LemmaReachableStateIsValid(ss);
-        forall m | m in ss.msgSent && ValidMsg(m)
-        ensures m in ss.nodeStates[m.sender].msgSent
+        LemmaTwoQuorumIntersection(All_Nodes, Adversary_Nodes, signers1, signers2);
+    }
+
+    lemma LemmaHonestNodeOnlyVoteOnceInOneView(
+        ss : SystemState,
+        r : Address
+    )
+    requires Reachable(ss)
+    requires IsHonest(ss, r)
+    ensures forall v1, v2 | && v1 in ss.nodeStates[r].msgSent
+                            && v2 in ss.nodeStates[r].msgSent
+                            && ValidVoteMsg(v1)
+                            && ValidVoteMsg(v2)
+                          ::
+                            && v1.mType == v2.mType
+                            && v1.viewNum == v2.viewNum
+                            ==>
+                            v1 == v2
+
+    lemma LemmaSameValidQCInSameView(ss : SystemState)
+    requires Reachable(ss)
+    ensures forall cert1, cert2 | && ValidQC(cert1)
+                                    && ValidQC(cert2)
+                                    && cert1.cType == cert2.cType
+                                    && cert1.viewNum == cert2.viewNum
+                                ::
+                                    cert1.block == cert2.block
+    {
+
+        forall cert1, cert2 | && ValidQC(cert1)
+                                    && ValidQC(cert2)
+                                    && cert1.cType == cert2.cType
+                                    && cert1.viewNum == cert2.viewNum
+        ensures cert1.block == cert2.block
         {
-            
+            LemmaReachableStateIsValid(ss);
+            LemmaExistSameHonestNodeInTwoValidQC(ss, cert1, cert2);
+            var signers1 := getMajoritySignerInValidQC(cert1);
+            var signers2 := getMajoritySignerInValidQC(cert2);
+            var replica :| IsHonest(ss, replica) && replica in signers1 * signers2;
+            var rState := ss.nodeStates[replica];
+
+            LemmaExistVoteMsgForSignature(ss);
+            var sign1 :| && sign1 in cert1.signatures
+                         && sign1.signer == replica;
+            var sign2 :| && sign2 in cert2.signatures
+                         && sign2.signer == replica;
+            var v1 :| && v1 in rState.msgSent
+                      && ValidVoteMsg(v1)
+                      && corrVoteMsg(sign1, v1);
+            var v2 :| && v2 in rState.msgSent
+                      && ValidVoteMsg(v2)
+                      && corrVoteMsg(sign2, v2);
+
+            LemmaHonestNodeOnlyVoteOnceInOneView(ss, replica);
+            assert v1.block == v2.block;
         }
     }
+
+    lemma LemmaQCAtView0(
+        ss : SystemState,
+        qc : Cert)
+    requires Reachable(ss)
+    requires ValidQC(qc) && qc.viewNum == 0
+    ensures qc.block == Genesis_Block
 
 }

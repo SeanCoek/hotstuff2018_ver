@@ -3,6 +3,7 @@
 module M_SpecTypes {
 
   type {:extern "Address"} Address(==,!new)
+  type {:extern "Hash"} Hash(==,!new)
 
 
   datatype Block = Block(parent : Block) | EmptyBlock
@@ -34,7 +35,8 @@ module M_SpecTypes {
     viewNum : nat,
     block : Block,
     justify : Cert,
-    partialSig : Signature
+    partialSig : Signature,
+    lockedQC : Cert
   )
 
   datatype MsgWithRecipient = MsgWithRecipient(

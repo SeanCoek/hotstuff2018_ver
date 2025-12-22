@@ -128,14 +128,24 @@ module M_Thereom {
                                             && m2_p.justify.cType == MT_Prepare
                                             && m2_p.justify.block == m2.justify.block
                                             && m2_p.justify.viewNum == m2.justify.viewNum;
-                
+
                 if m1_p.justify.viewNum <= m2_p.justify.viewNum {
                     assert extension(m2_p.justify.block, m1_p.justify.block) by {
-                        LemmaPrepareQCExtensionIfExistCommitQC(ss);
+                        // LemmaPrepareQCExtensionIfExistCommitQC(ss);
+                        LemmaExistSameHonestNodeInTwoValidQC(ss, m1.justify, m2_p.justify);
+                        var r :| && r in getSameSignersInTwoQC(m2_p.justify, m1.justify)
+                                 && IsHonest(ss, r);
+                        LemmaHonestNodeWontVoteConflictInPrepare(ss, r, m1.justify, m2_p.justify);
+                        assert extension(m2_p.justify.block, m1.justify.block);
                     }
                 } else {
                     assert extension(m1_p.justify.block, m2_p.justify.block) by {
-                        LemmaPrepareQCExtensionIfExistCommitQC(ss);
+                        // LemmaPrepareQCExtensionIfExistCommitQC(ss);
+                        LemmaExistSameHonestNodeInTwoValidQC(ss, m2.justify, m1_p.justify);
+                        var r :| && r in getSameSignersInTwoQC(m1_p.justify, m2.justify)
+                                 && IsHonest(ss, r);
+                        LemmaHonestNodeWontVoteConflictInPrepare(ss, r, m2.justify, m1_p.justify);
+                        assert extension(m1_p.justify.block, m2.justify.block);
                     }
                 }
 

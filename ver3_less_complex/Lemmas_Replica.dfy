@@ -25,23 +25,37 @@ module M_Lemmas_Replica {
         ensures s[i].msgReceived == s[j].msgReceived {
             forall i | 0 <= i < |s|-1 
             ensures msgRecSeq[i] == msgRecSeq[i+1] {
-                LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
+                LemmaMsgRecRelationInReplicaNextSub(s[i], s[i+1], o[i]);
             }
             LemmaSetEqualityTransitiveInSeq(msgRecSeq);
         }
     }
 
+    lemma LemmaReplicaStableIDInReplicaNextSub(
+        r : ReplicaState,
+        r' : ReplicaState,
+        outMsg : set<Msg>
+    )
+    requires ValidReplicaState(r)
+    requires ReplicaNextSubStep(r, r', outMsg)
+    ensures r.id == r'.id
+    {
+    }
 
-    lemma LemmaReplicaNextSubStable(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    lemma LemmaMsgRecRelationInReplicaNextSub(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
     requires ValidReplicaState(r)
     requires ReplicaNextSubStep(r, r', outMsg)
     ensures r'.msgReceived == r.msgReceived
-    ensures r'.msgSent == r.msgSent + outMsg
     {
 
     }
 
-
+    lemma LemmaMsgSentRelationInReplicaNextSub(r : ReplicaState, r' : ReplicaState, outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires ReplicaNextSubStep(r, r', outMsg)
+    ensures r'.msgSent == r.msgSent + outMsg
+    {
+    }
 
     lemma LemmaInitReplicaIsValid(r : ReplicaState)
     requires ReplicaInit(r, r.id)
@@ -123,16 +137,6 @@ module M_Lemmas_Replica {
     {
     }
 
-    lemma LemmaReplicaStableIDInReplicaNextSub(
-        r : ReplicaState,
-        r' : ReplicaState,
-        outMsg : set<Msg>
-    )
-    requires ValidReplicaState(r)
-    requires ReplicaNextSubStep(r, r', outMsg)
-    ensures r.id == r'.id
-    {
-    }
 
     lemma LemmaReplicaStableIDInSeqOfReplicaNextSub(
     s : seq<ReplicaState>,
@@ -158,7 +162,7 @@ module M_Lemmas_Replica {
         }
     }
 
-    lemma LemmaMsgSentWithBySameReplicaInReplicaNext(
+    lemma LemmaMsgSentBySameReplicaInReplicaNext(
         r : ReplicaState,
         inMsg : set<Msg>,
         r' : ReplicaState,
@@ -227,7 +231,7 @@ module M_Lemmas_Replica {
         assert s[|s|-1].msgReceived == s[0].msgReceived by {
             forall i | 0 <= i < |s|-1 
             ensures msgRecSeq[i] == msgRecSeq[i+1] {
-                LemmaReplicaNextSubStable(s[i], s[i+1], o[i]);
+                LemmaMsgRecRelationInReplicaNextSub(s[i], s[i+1], o[i]);
             }
             LemmaSetEqualityTransitiveInSeq(msgRecSeq);
         }
@@ -235,7 +239,7 @@ module M_Lemmas_Replica {
         assert s[|s|-1].msgSent == s[0].msgSent + outMsg by {
             forall i | 0 < i < |s|
             ensures msgSentSeq[i] == msgSentSeq[i-1] + o[i-1] {
-                LemmaReplicaNextSubStable(s[i-1], s[i], o[i-1]);
+                LemmaMsgSentRelationInReplicaNextSub(s[i-1], s[i], o[i-1]);
             }
             LemmaSeqCumulative(msgSentSeq, o);
         }
@@ -548,5 +552,49 @@ module M_Lemmas_Replica {
     {
 
     }
+
+    lemma LemmaReplicaStableIDInReplicaNext(
+        r : ReplicaState,
+        inMsg : set<Msg>,
+        r' : ReplicaState,
+        outMsg : set<Msg>)
+    requires ValidReplicaState(r)
+    requires ReplicaNext(r, inMsg, r', outMsg)
+    ensures r.id == r'.id
+    {
+        var allMsgReceived := r.msgReceived + inMsg;
+        var replicaWithNewMsgReceived := r.(
+            msgReceived := allMsgReceived
+        );
+        var s : seq<ReplicaState>, o : seq<set<Msg>> :|
+                && |s| > 2
+                && |o| == |s| - 1
+                && s[0] == replicaWithNewMsgReceived
+                && s[|s|-1] == r'
+                && (forall i | 0 <= i < |s| - 1 ::
+                    && ValidReplicaState(s[i])
+                    && ReplicaNextSubStep(s[i], s[i+1], o[i])
+                )
+                && outMsg == setUnionOnSeq(o);
+
+        forall i, j | 0 <= i < |s| && 0 <= j < |s|
+        ensures s[i].id == s[j].id
+        {
+            LemmaReplicaStableIDInSeqOfReplicaNextSub(s, o);
+        }
+    }
+
+    // lemma LemmaHonestReplicaVoteProposalWhenItIsSafe(
+    //     ss : SystemState,
+    //     r : Address,
+    //     vote : Msg
+    // )
+    // requires IsHonest(ss, r)
+    // requires vote in ss.nodeStates[r].msgSent
+    // requires ValidPrepareVote(vote)
+    // ensures exists proposal | proposal in ss.nodeStates[r].msgReceived
+    //                         ::
+    //                           && ValidProposal(proposal)
+    //                           && safeNode
 
 }

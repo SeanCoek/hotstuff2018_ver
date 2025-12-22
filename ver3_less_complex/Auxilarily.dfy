@@ -7,6 +7,16 @@ module M_AuxilarilyFunc {
     import opened Std.Collections.Seq
     import opened Std.Collections.Set
 
+    function orderMsg(m : Msg) : nat
+
+    lemma{:axiom} LemmaOrderMsg()
+    ensures forall m, m' :: m != m' ==> orderMsg(m) != orderMsg(m')
+
+    function digestBlock(block : Block) : Hash
+
+    lemma{:axiom} LemmaHash()
+    ensures forall b, b' :: digestBlock(b) == digestBlock(b') <==> b == b'
+
     /**
      * @returns Set union of a sequence of sets
      */
@@ -82,7 +92,7 @@ module M_AuxilarilyFunc {
     function getInitialMsg(sender : Address) : (m : Msg)
     ensures ValidNewView(m)
     {
-        Msg(sender, MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone)
+        Msg(sender, MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone, CertNone)
     }
 
     function getMultiInitialMsg(senders : set<Address>) : (r : set<Msg>)
@@ -635,6 +645,7 @@ module M_AuxilarilyFunc {
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
         && m.sender == m.partialSig.signer
+        && m.lockedQC.Cert?
     }
 
     predicate ValidPrecommitRequest(m : Msg)
@@ -660,6 +671,7 @@ module M_AuxilarilyFunc {
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
         && m.sender == m.partialSig.signer
+        && m.lockedQC.CertNone?
     }
 
     predicate ValidCommitRequest(m : Msg)
@@ -685,6 +697,7 @@ module M_AuxilarilyFunc {
         && m.partialSig.viewNum == m.viewNum
         && m.partialSig.signer in All_Nodes
         && m.sender == m.partialSig.signer
+        && m.lockedQC.CertNone?
     }
 
     predicate ValidDecideMsg(m : Msg)
@@ -867,15 +880,15 @@ module M_AuxilarilyFunc {
         else [f(s[0])] + mapSeq(s[1..], f)
     }
 
-    function buildMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat) : (m : Msg)
+    function buildMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat, lockedQC : Cert) : (m : Msg)
     {
-        Msg(sender, mType, viewNum, node, qc, SigNone)
+        Msg(sender, mType, viewNum, node, qc, SigNone, lockedQC)
     }
 
-    function buildVoteMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat, signer : Address) : (m : Msg)
+    function buildVoteMsg(sender : Address, mType : MsgType, node : Block, qc : Cert, viewNum : nat, lockedQC : Cert, signer : Address) : (m : Msg)
     {
         Msg(sender, mType, viewNum, node, qc,
-            Signature(signer, mType, viewNum, node))
+            Signature(signer, mType, viewNum, node), lockedQC)
     }
 
     function getVotesForSafeProposals(proposals : set<Msg>, lockedQC : Cert, id : Address) : (votes : set<Msg>)
@@ -901,9 +914,9 @@ module M_AuxilarilyFunc {
             && lockedQC.Cert?
             && safeNode(proposal.block, proposal.justify, lockedQC)
         then 
-            buildVoteMsg(id, MT_Prepare, proposal.block, CertNone, proposal.viewNum, id)
+            buildVoteMsg(id, MT_Prepare, proposal.block, CertNone, proposal.viewNum, lockedQC, id)
         else 
-            buildVoteMsg(id, MT_Prepare, EmptyBlock, CertNone, proposal.viewNum, id)
+            buildVoteMsg(id, MT_Prepare, EmptyBlock, CertNone, proposal.viewNum, lockedQC, id)
     }
 
     function proposalVoteFilter(votes : set<Msg>) : (r : set<Msg>)
@@ -915,6 +928,24 @@ module M_AuxilarilyFunc {
                 && v.block.EmptyBlock? && v.partialSig.block.EmptyBlock?
                 :: v
     }
+
+    function pickOneVoteDeterministic(votes : set<Msg>) : (r : Msg)
+    requires votes != {}
+    requires forall v | v in votes :: ValidVoteMsg(v)
+    ensures r in votes
+    ensures forall v | v in votes :: orderMsg(r) <= orderMsg(v)
+    // {
+    //     var voteOrders := set v | v in votes :: orderMsg(v);
+    // }
+
+    // lemma pickTest(votes : set<Msg>)
+    // requires votes != {}
+    // requires forall v | v in votes :: ValidVoteMsg(v)
+    // ensures pickOneVoteDeterministic(votes) == pickOneVoteDeterministic(votes)
+    // {
+
+    // }
+
 
 
     predicate predHonestNodeInTwoQC(honest : set<Address>, qc1 : Cert, qc2 : Cert, r : Address)
@@ -932,5 +963,50 @@ module M_AuxilarilyFunc {
         var signers2 := getMajoritySignerInValidQC(qc2);
         r in signers1 * signers2
     }
+
+    predicate predHasDoneVoteInView(msgSent : set<Msg>, vType : MsgType, view : nat)
+    {
+        var existsVotes := set v | && v in msgSent
+                                   && ValidVoteMsg(v)
+                                   && v.mType == vType
+                                   && v.viewNum == view;
+        existsVotes != {}
+    }
+
+    function getSameSignersInTwoQC(qc1 : Cert, qc2 : Cert) : (r : set<Address>)
+    requires ValidQC(qc1) && ValidQC(qc2)
+    {
+        var signers1 := getMajoritySignerInValidQC(qc1);
+        var signers2 := getMajoritySignerInValidQC(qc2);
+        signers1 * signers2
+    }
+
+    function getNearestPrepareQC(qcs : set<Cert>, qc1 : Cert, qc2 : Cert) : (r : Cert)
+    requires forall qc | qc in qcs :: ValidQC(qc)
+    requires qc1 in qcs
+    requires qc2 in qcs
+    requires qc1.viewNum < qc2.viewNum
+    ensures r in qcs
+    ensures qc1.viewNum < r.viewNum <= qc2.viewNum
+    ensures forall qc | qc in qcs && qc1.viewNum < qc.viewNum <= qc2.viewNum :: r.viewNum <= qc.viewNum
+
+
+    function filterDoubleVote(msgs : set<Msg>) : (r : set<Msg>)
+    requires forall m | m in msgs :: ValidVoteMsg(m)
+    requires forall m1, m2 | && m1 in msgs 
+                             && m2 in msgs
+                          ::
+                             && m1.mType == m2.mType
+                             && m1.viewNum == m2.viewNum
+                             && m1.block == m2.block
+    ensures forall m | m in r :: m in msgs
+    ensures forall m1, m2 | && m1 in msgs 
+                            && m2 in msgs
+                            && m1 != m2
+                         ::
+                            m1.partialSig.signer == m2.partialSig.signer
+                            ==>
+                            && m1 !in r
+                            && m2 !in r
 
 }
