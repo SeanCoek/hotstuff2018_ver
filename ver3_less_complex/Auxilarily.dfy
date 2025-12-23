@@ -90,12 +90,14 @@ module M_AuxilarilyFunc {
     }
 
     function getInitialMsg(sender : Address) : (m : Msg)
+    requires sender in All_Nodes
     ensures ValidNewView(m)
     {
         Msg(sender, MT_NewView, 0, EmptyBlock, getInitialQC(MT_Prepare), SigNone, CertNone)
     }
 
     function getMultiInitialMsg(senders : set<Address>) : (r : set<Msg>)
+    requires forall r | r in senders :: r in All_Nodes
     {
         set r | r in senders :: getInitialMsg(r)
     }
@@ -387,9 +389,9 @@ module M_AuxilarilyFunc {
     ensures r.Block?
     ensures r.parent == parent
     ensures r.parent != r
-    {
-        Block(parent)
-    }
+    // {
+    //     Block(parent)
+    // }
 
     function getAncestors(b : Block) : (r : seq<Block>)
     // requires b.Block?
@@ -981,16 +983,6 @@ module M_AuxilarilyFunc {
         signers1 * signers2
     }
 
-    function getNearestPrepareQC(qcs : set<Cert>, qc1 : Cert, qc2 : Cert) : (r : Cert)
-    requires forall qc | qc in qcs :: ValidQC(qc)
-    requires qc1 in qcs
-    requires qc2 in qcs
-    requires qc1.viewNum < qc2.viewNum
-    ensures r in qcs
-    ensures qc1.viewNum < r.viewNum <= qc2.viewNum
-    ensures forall qc | qc in qcs && qc1.viewNum < qc.viewNum <= qc2.viewNum :: r.viewNum <= qc.viewNum
-
-
     function filterDoubleVote(msgs : set<Msg>) : (r : set<Msg>)
     requires forall m | m in msgs :: ValidVoteMsg(m)
     requires forall m1, m2 | && m1 in msgs 
@@ -1003,6 +995,8 @@ module M_AuxilarilyFunc {
     ensures forall m1, m2 | && m1 in msgs 
                             && m2 in msgs
                             && m1 != m2
+                            && ValidVoteMsg(m1)
+                            && ValidVoteMsg(m2)
                          ::
                             m1.partialSig.signer == m2.partialSig.signer
                             ==>

@@ -38,6 +38,7 @@ module M_Replica {
      */
     ghost predicate ReplicaInit(r : ReplicaState, id : Address)
     {
+        NoOuterClient();
         && r.id == id
         && r.bc == [M_SpecTypes.Genesis_Block]
         && r.viewNum == 1
@@ -470,6 +471,7 @@ module M_Replica {
                                   && safeNode(m2.block, m2.justify, m.lockedQC)
                                   && extension(m2.block, m.lockedQC.block)
                                   && m2.block == m.block
+                                  && m2.viewNum == m.viewNum
                                   && (|| (exists m3 | m3 in r.msgReceived
                                             ::
                                             && m3.justify == m.lockedQC
@@ -495,7 +497,7 @@ module M_Replica {
                             && m2 in r.msgReceived
                             && ValidCommitRequest(m2)
                         ::
-                            m1.viewNum >= m2.viewNum
+                            m1.viewNum > m2.viewNum
                             ==>
                             extension(m1.block, m2.justify.block))
     }

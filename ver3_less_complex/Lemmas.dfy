@@ -215,68 +215,73 @@ module M_Lemma {
             assert qc2_prepare.block == qc1_commit.block;
         }
         else {
-            // var vote1_cmt :| && vote1_cmt in rState.msgSent
-            //                  && ValidCommitVote(vote1_cmt)
-            //                  && vote1_cmt.viewNum == qc1_commit.viewNum
-            //                  && vote1_cmt.block == qc1_commit.block;
-            // var m2 :| && m2 in rState.msgReceived
-            //           && ValidCommitRequest(m2)
-            //           && corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
-            
-            // At v1, r lock at qc1_commit.block
-            // var lockedQC := m2.justify;
-            // assert lockedQC.viewNum == qc1_commit.viewNum;
-            // assert lockedQC.block == qc1_commit.block;
-            // assert r in getMajoritySignerInValidQC(qc2_prepare);
-
             var vote2_pre :| && vote2_pre in rState.msgSent
                             && ValidPrepareVote(vote2_pre)
-                            && vote2_pre.block == qc2_prepare.block;
-            
+                            && vote2_pre.block == qc2_prepare.block
+                            && vote2_pre.viewNum == qc2_prepare.viewNum;
 
-            var proposal :| && proposal in rState.msgReceived
-                            && ValidProposal(proposal)
-                            && extension(proposal.block, proposal.justify.block)
-                            && safeNode(proposal.block, proposal.justify, vote2_pre.lockedQC)
-                            && extension(proposal.block, vote2_pre.lockedQC.block)
-                            && proposal.block == vote2_pre.block;
-            
-            
+            LemmaExistSignIfSignerInQCSigners(qc1_commit);
+            assert exists sig | sig in qc1_commit.signatures :: sig.signer == r;
+            var sign1_cmt :| && sign1_cmt in qc1_commit.signatures
+                             && sign1_cmt.signer == r;
             var vote1_cmt :| && vote1_cmt in rState.msgSent
-                             && ValidCommitVote(vote1_cmt)
-                             && vote1_cmt.viewNum == qc1_commit.viewNum
-                             && vote1_cmt.block == qc1_commit.block;
+                            && ValidVoteMsg(vote1_cmt)
+                            && corrVoteMsg(sign1_cmt, vote1_cmt);
+            assert vote1_cmt.viewNum == qc1_commit.viewNum;
+            assert vote1_cmt.block == qc1_commit.block;
+            assert ValidCommitVote(vote1_cmt);
+
+            assert ValidReplicaState(rState);
+            assert vote1_cmt in rState.msgSent && ValidCommitVote(vote1_cmt);
+            assert exists m2 :: && m2 in rState.msgReceived
+                                && ValidCommitRequest(m2)
+                                && corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
             var m2 :| && m2 in rState.msgReceived
                       && ValidCommitRequest(m2)
                       && corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
-            
+
+            assert m2.viewNum == vote1_cmt.viewNum by {
+                assert && corrVoteMsgAndToVotedMsg(vote1_cmt, m2)
+                       && vote1_cmt.viewNum == vote1_cmt.partialSig.viewNum;
+
+            }
+            assert m2.justify.block == vote1_cmt.block by {
+                assert corrVoteMsgAndToVotedMsg(vote1_cmt, m2);
+                assert m2.justify.block == vote1_cmt.partialSig.block;
+                assert vote1_cmt.partialSig.block == vote1_cmt.block;
+            }
+
             assert qc2_prepare.viewNum > qc1_commit.viewNum;
-            assert proposal.viewNum == qc2_prepare.viewNum;
+            assert qc2_prepare.viewNum == vote2_pre.viewNum;
             assert qc1_commit.viewNum == vote1_cmt.viewNum;
-            assert vote1_cmt.viewNum == m2.viewNum;
-            assert m2.justify.block == vote1_cmt.block;
+            assert vote2_pre.viewNum > m2.viewNum;
 
-            assert proposal.viewNum > m2.viewNum;
-            assert extension(proposal.block, m2.justify.block);
-
-            // assert || extension(proposal.block, vote2_pre.lockedQC.block)
-            //         || proposal.justify.viewNum > vote2_pre.lockedQC.viewNum;
-
-
-            // if extension(proposal.block, vote2_pre.lockedQC.block) {
-
-            // }
-            // else {
-            //     assert proposal.justify.viewNum > vote2_pre.lockedQC.viewNum;
-            //     assume extension(qc2_prepare.block, qc1_commit.block);
-            // }
-            // assert proposal.viewNum == qc2_prepare.viewNum;
-
-            // assert extension(proposal.block, vote2_pre.lockedQC.block);
+            assert extension(qc2_prepare.block, vote1_cmt.block) by {
+                assert ( && vote2_pre in rState.msgSent
+                         && ValidPrepareVote(vote2_pre)
+                         && m2 in rState.msgReceived
+                         && ValidCommitRequest(m2)
+                         );
+                assert ValidReplicaState(rState);
+                assert vote2_pre.viewNum > m2.viewNum;
+                assert extension(vote2_pre.block, m2.justify.block);
+                assert vote2_pre.block == qc2_prepare.block;
+                assert m2.justify.block == vote1_cmt.block;
+            }
+            // assert false;
         }
 
     }
 
+    lemma LemmaExistSignIfSignerInQCSigners(qc : Cert)
+    requires ValidQC(qc)
+    ensures forall r | r in getMajoritySignerInValidQC(qc)
+                    ::
+                      exists sig :: && sig in qc.signatures
+                                    && sig.signer == r
+    {
+
+    }
 
     lemma LemmaReachableStateIsValid(ss : SystemState)
     requires Reachable(ss)
